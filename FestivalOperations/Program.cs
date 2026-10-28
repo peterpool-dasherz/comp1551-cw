@@ -24,6 +24,7 @@ try
         Console.WriteLine("1. List people");
         Console.WriteLine("2. Add crew member");
         Console.WriteLine("3. Add performer");
+        Console.WriteLine("4. Add vendor");
         Console.WriteLine("0. Exit");
         Console.Write("Choose an option: ");
 
@@ -47,6 +48,11 @@ try
         else if (choice == "3")
         {
             await AddPerformerAsync(connection);
+        }
+
+        else if (choice == "4")
+        {
+            await AddVendorAsync(connection);
         }
 
         else
@@ -279,6 +285,115 @@ static async Task AddPerformerAsync(SqlConnection connection)
     }
 }
 
+static async Task AddVendorAsync(SqlConnection connection)
+{
+    string name = ReadRequired("Name: ", 150);
+    string telephone = ReadRequired("Telephone: ", 30);
+    string email = ReadRequired("Email: ", 254);
+    List<string> categories = ReadCategories();
+
+    using SqlTransaction transaction = connection.BeginTransaction();
+
+    try
+    {
+        const string insertPersonSql = """
+            INSERT INTO dbo.People (Name, Telephone, Email, Role)
+            OUTPUT INSERTED.PersonID
+            VALUES (@Name, @Telephone, @Email, N'Vendor');
+            """;
+        
+        int personID;
+        
+        await using (var personCommand = 
+            new SqlCommand(insertPersonSql, connection, transaction))
+        {
+            personCommand.Parameters
+                .Add("@Name", SqlDbType.NVarChar, 150).Value = name;
+            personCommand.Parameters
+                .Add("@Telephone", SqlDbType.NVarChar, 30).Value = telephone;
+            personCommand.Parameters
+                .Add("@Email", SqlDbType.NVarChar, 254).Value = email;
+            
+            personID = (int)(await personCommand.ExecuteScalarAsync())!;
+        }
+
+        const string insertVendorSql = """
+            INSERT INTO dbo.Vendors (PersonID)
+            VALUES (@PersonID);
+            """;
+        
+        await using (var vendorCommand =
+            new SqlCommand(insertVendorSql, connection, transaction))
+        {
+            vendorCommand.Parameters
+                .Add("@PersonID", SqlDbType.Int).Value = personID;
+            
+            await vendorCommand.ExecuteNonQueryAsync();
+        }
+
+        foreach (string category in categories)
+        {
+            const string getCategoryIDSql = """
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM dbo.ProductCategories
+                    WHERE CategoryName = @CategoryName    
+                )
+                BEGIN
+                    INSERT INTO dbo.ProductCategories (CategoryName)
+                    VALUES (@CategoryName);
+                END;
+
+                SELECT CategoryID
+                FROM dbo.ProductCategories
+                WHERE CategoryName = @CategoryName;
+                """;
+            
+            int categoryID;
+
+            await using (var categoryCommand = 
+                new SqlCommand(getCategoryIDSql, connection, transaction))
+            {
+                categoryCommand.Parameters
+                    .Add("@CategoryName", SqlDbType.NVarChar, 100).Value = category;
+                
+                categoryID = (int)(await categoryCommand.ExecuteScalarAsync())!;
+            }
+
+            const string linkCategorySql = """
+                INSERT INTO dbo.VendorCategories (PersonID, CategoryID)
+                VALUES (@PersonID, @CategoryID);
+                """;
+            await using (var linkCommand = 
+                new SqlCommand(linkCategorySql, connection, transaction))
+            {
+                linkCommand.Parameters
+                    .Add("@PersonID", SqlDbType.Int).Value = personID;
+                linkCommand.Parameters
+                    .Add("@CategoryID", SqlDbType.Int).Value = categoryID;
+                
+                await linkCommand.ExecuteNonQueryAsync();
+            }
+        }
+
+        transaction.Commit();
+        Console.WriteLine($"Vendor added.");
+    }
+    catch
+    {
+        try
+        {
+            transaction.Rollback();
+        }
+        catch
+        {
+            // If an error persists, keep the original database.
+        }
+
+        throw;
+    }
+}
+
 static string ReadRequired(string prompt, int maxLength)
 {
     while (true)
@@ -420,6 +535,39 @@ static List<string> ReadGenres()
         else
         {
             return genres;
+        }
+    }
+}
+
+static List<string> ReadCategories()
+{
+    while (true)
+    {
+        Console.Write("Product categories: ");
+        string? input = Console.ReadLine();
+
+        List<string> categories = (input ?? string.Empty)
+            .Split(
+                ',',
+                StringSplitOptions.TrimEntries
+                    | StringSplitOptions.RemoveEmptyEntries
+            )
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        
+        if (categories.Count == 0)
+        {
+            Console.WriteLine("Enter at least one category.");
+        }
+
+        else if (categories.Any(category => category.Length > 100))
+        {
+            Console.WriteLine("Each category must be 100 characters or fewer.");
+        }
+
+        else
+        {
+            return categories;
         }
     }
 }
