@@ -25,6 +25,7 @@ try
         Console.WriteLine("2. Add crew member");
         Console.WriteLine("3. Add performer");
         Console.WriteLine("4. Add vendor");
+        Console.WriteLine("5. View people by role");
         Console.WriteLine("0. Exit");
         Console.Write("Choose an option: ");
 
@@ -53,6 +54,11 @@ try
         else if (choice == "4")
         {
             await AddVendorAsync(connection);
+        }
+
+        else if (choice == "5")
+        {
+            await ViewPeopleByRoleAsync(connection);
         }
 
         else
@@ -97,6 +103,128 @@ static async Task ListPeopleAsync(SqlConnection connection)
     if (!foundPeople)
     {
         Console.WriteLine("No people found.");
+    }
+}
+
+static async Task ViewPeopleByRoleAsync(SqlConnection connection)
+{
+    string? role = null;
+
+    while (role is null)
+    {
+        Console.WriteLine();
+        Console.WriteLine("1. Performers");
+        Console.WriteLine("2: Crew");
+        Console.WriteLine("3. Vendors");
+        Console.WriteLine("0. Back to main menu");
+        Console.Write("Choose a role: ");
+
+        string? choice = Console.ReadLine()?.Trim();
+
+        role = choice switch
+        {
+            "1" => "Performer",
+            "2" => "Crew",
+            "3" => "Vendor",
+            "0" => "Back",
+            _ => null
+        };
+
+        if (role is null)
+        {
+            Console.WriteLine("Please choose from the options above.");
+        }
+    }
+
+    if (role == "Back")
+    {
+        return;
+    }
+
+    const string sql = """
+        SELECT
+            p.PersonID,
+            p.Name,
+            p.Telephone,
+            p.Email,
+            p.Role,
+            CASE p.Role
+                WHEN N'Performer' THEN CONCAT(
+                    N'Fee: ',
+                    CONVERT(nvarchar(30), performer.Fee),
+                    N'; Genres: ',
+                    COALESCE(
+                        (
+                            SELECT STRING_AGG(g.GenreName, N', ')
+                            FROM dbo.PerformerGenres AS pg
+                            INNER JOIN dbo.Genres AS g
+                                ON g.GenreID = pg.GenreID
+                            WHERE pg.PersonID = p.PersonID
+                        ),
+                        N'None'
+                    )
+                )
+                WHEN N'Crew' THEN CONCAT(
+                    N'Hourly rate: ',
+                    CONVERT(nvarchar(30), crew.HourlyRate),
+                    N'; Employment: ',
+                    crew.EmploymentType,
+                    N'; Weekly hours: ',
+                    crew.WeeklyHours
+                )
+                WHEN N'Vendor' THEN CONCAT(
+                    N'Categories: ',
+                    COALESCE(
+                        (
+                            SELECT STRING_AGG(category.CategoryName, N', ')
+                            FROM dbo.VendorCategories AS vc
+                            INNER JOIN dbo.ProductCategories AS category
+                                ON category.CategoryID = vc.CategoryID
+                            WHERE vc.PersonID = p.PersonID
+                        ),
+                        N'None'
+                    )
+                )
+            END AS RoleDetails
+        FROM dbo.People AS p
+        LEFT JOIN dbo.Performers AS performer
+            ON performer.PersonID = p.PersonID
+        LEFT JOIN dbo.Crew AS crew
+            ON crew.PersonID = p.PersonID
+        WHERE p.Role = @Role
+        ORDER BY p.PersonID;
+        """;
+    await using var command = new SqlCommand(sql, connection);
+    command.Parameters
+        .Add("@Role", SqlDbType.NVarChar, 20).Value = role;
+    
+    await using var reader = await command.ExecuteReaderAsync();
+
+    bool foundPeople = false;
+
+    Console.WriteLine();
+    Console.WriteLine("ID | Name | Telephone | Email | Role | Details");
+
+    while (await reader.ReadAsync())
+    {
+        foundPeople = true;
+
+        int personID = reader.GetInt32(0);
+        string name = reader.GetString(1);
+        string telephone = reader.GetString(2);
+        string email = reader.GetString(3);
+        string personRole = reader.GetString(4);
+        string roleDetails = reader.GetString(5);
+
+        Console.WriteLine(
+            $"{personID} | {name} | {telephone} | {email} | " +
+            $"{personRole} | {roleDetails}"
+        );
+    }
+
+    if (!foundPeople)
+    {
+        Console.WriteLine($"No {role.ToLowerInvariant()} records found.");
     }
 }
 
