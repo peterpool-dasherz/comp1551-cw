@@ -26,6 +26,7 @@ try
         Console.WriteLine("3. Add performer");
         Console.WriteLine("4. Add vendor");
         Console.WriteLine("5. View people by role");
+        Console.WriteLine("6. Edit person by ID");
         Console.WriteLine("0. Exit");
         Console.Write("Choose an option: ");
 
@@ -59,6 +60,11 @@ try
         else if (choice == "5")
         {
             await ViewPeopleByRoleAsync(connection);
+        }
+
+        else if (choice == "6")
+        {
+            await EditPersonAsync(connection);
         }
 
         else
@@ -516,6 +522,241 @@ static async Task AddVendorAsync(SqlConnection connection)
         catch
         {
             // If an error persists, keep the original database.
+        }
+
+        throw;
+    }
+}
+
+static async Task EditPersonAsync(SqlConnection connection)
+{
+    int personID = ReadPersonID();
+
+    const string getRoleSql = """
+        SELECT Role
+        FROM dbo.People
+        WHERE PersonID = @PersonID;
+        """;
+    
+    string? role;
+
+    await using (var roleCommand = new SqlCommand(getRoleSql, connection))
+    {
+        roleCommand.Parameters
+            .Add("@PersonID", SqlDbType.Int).Value = personID;
+        
+        role = (string?)await roleCommand.ExecuteScalarAsync();
+    }
+
+    if (role is null)
+    {
+        Console.WriteLine($"No person found with PersonID {personID}.");
+        return;
+    }
+
+    Console.WriteLine($"Editing {role} with PersonID {personID}.");
+    string name = ReadRequired("New name: ", 150);
+    string telephone = ReadRequired("New telephone: ", 30);
+    string email = ReadRequired("New email: ", 254);
+
+    decimal fee = 0;
+    List<string> genres = [];
+    decimal hourlyRate = 0;
+    string employmentType = "";
+    int weeklyHours = 0;
+    List<string> categories = [];
+
+    if (role == "Performer")
+    {
+        fee = ReadPerformerFee();
+        genres = ReadGenres();
+    }
+
+    else if (role == "Crew")
+    {
+        hourlyRate = ReadHourlyRate();
+        employmentType = ReadEmploymentType();
+        weeklyHours = ReadWeeklyHours(employmentType);
+    }
+
+    else if (role == "Vendor")
+    {
+        categories = ReadCategories();
+    }
+
+    else
+    {
+        Console.WriteLine($"Unknown role '{role}'.");
+        return;
+    }
+
+    using SqlTransaction transaction = connection.BeginTransaction();
+
+    try
+    {
+        const string updatePersonSql = """
+            UPDATE dbo.People
+            SET Name = @Name,
+                Telephone = @Telephone,
+                Email = @Email
+            WHERE PersonID = @PersonID;
+            """;
+        
+        await using (var personCommand = 
+            new SqlCommand(updatePersonSql, connection, transaction))
+        {
+            personCommand.Parameters
+                .Add("@Name", SqlDbType.NVarChar, 150).Value = name;
+            personCommand.Parameters
+                .Add("@Telephone", SqlDbType.NVarChar, 30).Value = telephone;
+            personCommand.Parameters
+                .Add("@Email", SqlDbType.NVarChar, 254).Value = email;
+            personCommand.Parameters
+                .Add("@PersonID", SqlDbType.Int).Value = personID;
+            
+            await personCommand.ExecuteNonQueryAsync();
+        }
+
+        if (role == "Performer")
+        {
+            const string updatePerformerSql = """
+                UPDATE dbo.Performers
+                SET Fee = @Fee
+                WHERE PersonID = @PersonID;
+                """;
+            
+            await using (var performerCommand =
+                new SqlCommand(updatePerformerSql, connection, transaction))
+            {
+                var feeParameter =
+                    performerCommand.Parameters.Add("@Fee", SqlDbType.Decimal);
+                feeParameter.Precision = 10;
+                feeParameter.Scale = 2;
+                feeParameter.Value = fee;
+
+                performerCommand.Parameters
+                    .Add("@PersonID", SqlDbType.Int).Value = personID;
+                
+                await performerCommand.ExecuteNonQueryAsync();
+            }
+
+            await using (var deleteGenresCommand = 
+                new SqlCommand(
+                    "DELETE FROM dbo.PerformerGenres WHERE PersonID = @PersonID;",
+                    connection,
+                    transaction))
+            {
+                deleteGenresCommand.Parameters
+                    .Add("@PersonID", SqlDbType.Int).Value = personID;
+                await deleteGenresCommand.ExecuteNonQueryAsync();
+            }
+
+            foreach (string genre in genres)
+            {
+                int genreID = await GetOrCreateGenreIDAsync(
+                    connection,
+                    transaction, 
+                    genre
+                );
+
+                await using var linkCommand = new SqlCommand(
+                    """
+                    INSERT INTO dbo.PerformerGenres(PersonID, GenreID)
+                    VALUES (@PersonID, @GenreID);
+                    """,
+                    connection,
+                    transaction
+                );
+
+                linkCommand.Parameters
+                    .Add("@PersonID", SqlDbType.Int).Value = personID;
+                linkCommand.Parameters
+                    .Add("@GenreID", SqlDbType.Int).Value = genreID;
+                
+                await linkCommand.ExecuteNonQueryAsync();
+            }
+        }
+
+        else if (role == "Crew")
+        {
+            const string updateCrewSql = """
+                UPDATE dbo.Crew
+                SET HourlyRate = @HourlyRate,
+                    EmploymentType = @EmploymentType,
+                    WeeklyHours = @WeeklyHours
+                WHERE PersonID = @PersonID;
+                """;
+            
+            await using var crewCommand = 
+                new SqlCommand(updateCrewSql, connection, transaction);
+            var rateParameter = crewCommand.Parameters.Add("@HourlyRate", SqlDbType.Decimal);
+            rateParameter.Precision = 8;
+            rateParameter.Scale = 2;
+            rateParameter.Value = hourlyRate;
+
+            crewCommand.Parameters
+                .Add("@EmploymentType", SqlDbType.NVarChar, 10).Value = employmentType;
+            crewCommand.Parameters
+                .Add("@WeeklyHours", SqlDbType.Int).Value = weeklyHours;
+            crewCommand.Parameters
+                .Add("@PersonID", SqlDbType.Int).Value = personID;
+            
+            await crewCommand.ExecuteNonQueryAsync();
+        }
+
+        else if (role == "Vendor")
+        {
+            await using (var deleteCategoriesCommand =
+                new SqlCommand(
+                    "DELETE FROM dbo.VendorCategories WHERE PersonID = @PersonID;",
+                    connection,
+                    transaction))
+            {
+                deleteCategoriesCommand.Parameters
+                    .Add("@PersonID", SqlDbType.Int).Value = personID;
+                await deleteCategoriesCommand.ExecuteNonQueryAsync();
+            }
+
+            foreach (string category in categories)
+            {
+                int categoryID = await GetOrCreateCategoryIDAsync(
+                    connection,
+                    transaction,
+                    category
+                );
+
+                await using var linkCommand = new SqlCommand(
+                    """
+                    INSERT INTO dbo.VendorCategories (PersonID, CategoryID)
+                    VALUES (@PersonID, @CategoryID);
+                    """,
+                    connection,
+                    transaction
+                );
+
+                linkCommand.Parameters
+                    .Add("@PersonID", SqlDbType.Int).Value = personID;
+                linkCommand.Parameters
+                    .Add("@CategoryID", SqlDbType.Int).Value = categoryID;
+
+                await linkCommand.ExecuteNonQueryAsync();
+            }
+        }
+
+        transaction.Commit();
+        Console.WriteLine($"Person {personID} updated successfully.");
+    }
+
+    catch
+    {
+        try
+        {
+            transaction.Rollback();
+        }
+
+        catch
+        {
+            
         }
 
         throw;
