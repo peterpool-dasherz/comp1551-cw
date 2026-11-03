@@ -248,7 +248,7 @@ static async Task AddCrewAsync(PersonRepository personRepository)
         weeklyHours
     );
 
-    Console.WriteLine("New member added with PersonID {personID}.");
+    Console.WriteLine($"New member added with PersonID {personID}.");
 }
 
 static async Task AddPerformerAsync(SqlConnection connection)
