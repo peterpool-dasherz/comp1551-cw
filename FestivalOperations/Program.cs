@@ -27,6 +27,7 @@ try
         Console.WriteLine("4. Add vendor");
         Console.WriteLine("5. View people by role");
         Console.WriteLine("6. Edit person by ID");
+        Console.WriteLine("7. Delete person by ID");
         Console.WriteLine("0. Exit");
         Console.Write("Choose an option: ");
 
@@ -65,6 +66,11 @@ try
         else if (choice == "6")
         {
             await EditPersonAsync(connection);
+        }
+
+        else if (choice == "7")
+        {
+            await DeletePersonAsync(connection);
         }
 
         else
@@ -530,7 +536,7 @@ static async Task AddVendorAsync(SqlConnection connection)
 
 static async Task EditPersonAsync(SqlConnection connection)
 {
-    int personID = ReadPersonID();
+    int personID = ReadPersonID("PersonID to edit: ");
 
     const string getRoleSql = """
         SELECT Role
@@ -763,11 +769,11 @@ static async Task EditPersonAsync(SqlConnection connection)
     }
 }
 
-static int ReadPersonID()
+static int ReadPersonID(string prompt)
 {
     while (true)
     {
-        Console.Write("PersonID to edit: ");
+        Console.Write(prompt);
         string? input = Console.ReadLine();
 
         if (int.TryParse(input, out int personID) && personID > 0)
@@ -776,6 +782,99 @@ static int ReadPersonID()
         }
 
         Console.WriteLine("Enter a valid PersonID that is larger than zero.");
+    }
+}
+
+static async Task DeletePersonAsync(SqlConnection connection)
+{
+    int personID = ReadPersonID("PersonID to delete: ");
+
+    const string findPersonSql = """
+        SELECT Name, Role
+        FROM dbo.People
+        WHERE PersonID = @PersonID;
+        """;
+    
+    string? name = null;
+    string? role = null;
+
+    await using (var findCommand = new SqlCommand(findPersonSql, connection))
+    {
+        findCommand.Parameters
+            .Add("@PersonID", SqlDbType.Int).Value = personID;
+
+        await using var reader = await findCommand.ExecuteReaderAsync();
+
+        if (await reader.ReadAsync())
+        {
+            name = reader.GetString(0);
+            role = reader.GetString(1);
+        }
+    }
+
+    if (name is null || role is null)
+    {
+        Console.WriteLine($"No person found with this ID. Please try again.");
+        return;
+    }
+
+    Console.WriteLine($"Found: {name} ({role}), PersonID {personID}.");
+    Console.Write("Type YES to confirm deletion.");
+
+    string? confirmation = Console.ReadLine()?.Trim();
+
+    if (!string.Equals(confirmation, "YES", StringComparison.OrdinalIgnoreCase))
+    {
+        Console.WriteLine("Deletion cancelled.");
+        return;
+    }
+
+    using SqlTransaction transaction = connection.BeginTransaction();
+
+    try
+    {
+        const string deleteSql = """
+            DELETE FROM dbo.People
+            WHERE PersonID = @PersonID;
+            """;
+        
+        int rowsDeleted;
+
+        await using (var deleteCommand = 
+            new SqlCommand(deleteSql, connection, transaction))
+        {
+            deleteCommand.Parameters
+                .Add("@PersonID", SqlDbType.Int).Value = personID;
+            
+            rowsDeleted = await deleteCommand.ExecuteNonQueryAsync();
+        }
+
+        transaction.Commit();
+
+        if (rowsDeleted == 1)
+        {
+            Console.WriteLine($"Person {personID} was deleted.");
+        }
+
+        else
+        {
+            Console.WriteLine($"Person {personID} was not found. Please try again.");
+        }
+    }
+
+    catch
+    {
+        try
+        {
+            transaction.Rollback();
+        }
+
+        catch
+        {
+            
+        }
+
+        throw;
     }
 }
 
