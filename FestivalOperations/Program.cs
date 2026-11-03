@@ -1,6 +1,7 @@
 ﻿using System.Data;
 using System.Globalization;
 using Microsoft.Data.SqlClient;
+using FestivalOperations.Data;
 
 string? connectionString =
     Environment.GetEnvironmentVariable("FESTIVAL_DB_CONNECTION");
@@ -15,6 +16,8 @@ try
 {
     await using var connection = new SqlConnection(connectionString);
     await connection.OpenAsync();
+
+    var personRepository = new PersonRepository(connection);
 
    Console.WriteLine("Connected to FestivalOperationsDB.");
 
@@ -40,12 +43,12 @@ try
 
         else if (choice == "1")
         {
-            await ListPeopleAsync(connection);
+            await ListPeopleAsync(personRepository);
         }
 
         else if (choice == "2")
         {
-            await AddCrewAsync(connection);
+            await AddCrewAsync(personRepository);
         }
 
         else if (choice == "3")
@@ -85,36 +88,22 @@ catch (SqlException ex)
     Console.WriteLine($"Database error: {ex.Message}");
 }
 
-static async Task ListPeopleAsync(SqlConnection connection)
+static async Task ListPeopleAsync(PersonRepository personRepository)
 {
-    const string sql = """
-        SELECT PersonID, Name, Role
-        FROM dbo.People
-        ORDER BY PersonID;
-        """;
-
-    await using var command = new SqlCommand(sql, connection);
-    await using var reader = await command.ExecuteReaderAsync();
-
-    bool foundPeople = false;
+    IReadOnlyList<PersonSummary> people = await personRepository.GetAllPeopleAsync();
 
     Console.WriteLine();
     Console.WriteLine("ID | Name | Role");
 
-    while (await reader.ReadAsync())
-    {
-        foundPeople = true;
-
-        int personID = reader.GetInt32(0);
-        string name = reader.GetString(1);
-        string role = reader.GetString(2);
-
-        Console.WriteLine($"{personID} | {name} | {role}");
-    }
-
-    if (!foundPeople)
+    if (people.Count == 0)
     {
         Console.WriteLine("No people found.");
+        return;
+    }
+
+    foreach (PersonSummary person in people)
+    {
+        Console.WriteLine($"{person.PersonID} | {person.Name} | {person.Role}");
     }
 }
 
@@ -240,7 +229,7 @@ static async Task ViewPeopleByRoleAsync(SqlConnection connection)
     }
 }
 
-static async Task AddCrewAsync(SqlConnection connection)
+static async Task AddCrewAsync(PersonRepository personRepository)
 {
     string name = ReadRequired("Name: ", 150);
     string telephone = ReadRequired("Telephone: ", 30);
@@ -250,67 +239,16 @@ static async Task AddCrewAsync(SqlConnection connection)
     string employmentType = ReadEmploymentType();
     int weeklyHours = ReadWeeklyHours(employmentType);
 
-    using SqlTransaction transaction = connection.BeginTransaction();
+    int personID = await personRepository.AddCrewAsync(
+        name, 
+        telephone,
+        email,
+        hourlyRate,
+        employmentType,
+        weeklyHours
+    );
 
-    try
-    {
-        const string insertPersonSql = """
-            INSERT INTO dbo.People (Name, Telephone, Email, Role)
-            OUTPUT INSERTED.PersonID
-            VALUES (@Name, @Telephone, @Email, N'Crew');
-            """;
-        int personID;
-
-        await using (var personCommand = 
-            new SqlCommand(insertPersonSql, connection, transaction))
-        {
-            personCommand.Parameters
-                .Add("@Name", SqlDbType.NVarChar, 150).Value = name;
-            personCommand.Parameters
-                .Add("@Telephone", SqlDbType.NVarChar, 30).Value = telephone;
-            personCommand.Parameters
-                .Add("@Email", SqlDbType.NVarChar, 254).Value = email;
-            
-            personID = (int)(await personCommand.ExecuteScalarAsync())!;
-        }
-    
-
-    const string insertCrewSql = """
-        INSERT INTO dbo.Crew
-            (PersonID, HourlyRate, EmploymentType, WeeklyHours)
-        VALUES
-            (@PersonID, @HourlyRate, @EmploymentType, @WeeklyHours);
-        """;
-
-    await using (var crewCommand = 
-        new SqlCommand(insertCrewSql, connection, transaction))
-    {
-        crewCommand.Parameters
-            .Add("@PersonID", SqlDbType.Int).Value = personID;
-        
-        var rateParameter =
-            crewCommand.Parameters.Add("@HourlyRate", SqlDbType.Decimal);
-        rateParameter.Precision = 8;
-        rateParameter.Scale = 2;
-        rateParameter.Value = hourlyRate;
-
-        crewCommand.Parameters
-            .Add("@EmploymentType", SqlDbType.NVarChar, 10).Value = employmentType;
-        crewCommand.Parameters
-            .Add("@WeeklyHours", SqlDbType.Int).Value = weeklyHours;
-        
-        await crewCommand.ExecuteNonQueryAsync();
-    }
-
-    transaction.Commit();
-    Console.WriteLine($"Crew member added with PersonID {personID}.");
-    } 
-    
-    catch
-    {
-        transaction.Rollback();
-        throw;
-    }
+    Console.WriteLine("New member added with PersonID {personID}.");
 }
 
 static async Task AddPerformerAsync(SqlConnection connection)
