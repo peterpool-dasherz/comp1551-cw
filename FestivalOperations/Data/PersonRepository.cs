@@ -149,7 +149,7 @@ public sealed class PersonRepository
                 OUTPUT INSERTED.PersonID
                 VALUES (@Name, @Telephone, @Email, N'Crew');
                 """;
-            
+
             int personID;
 
             await using (var personCommand = new SqlCommand(insertPersonSql, _connection, transaction))
@@ -160,7 +160,7 @@ public sealed class PersonRepository
                     .Add("@Telephone", SqlDbType.NVarChar, 30).Value = telephone;
                 personCommand.Parameters
                     .Add("@Email", SqlDbType.NVarChar, 254).Value = email;
-                
+
                 personID = (int)(await personCommand.ExecuteScalarAsync())!;
             }
 
@@ -170,13 +170,13 @@ public sealed class PersonRepository
                 VALUES
                     (@PersonID, @HourlyRate, @EmploymentType, @WeeklyHours);
                 """;
-            
-            await using (var crewCommand = 
+
+            await using (var crewCommand =
                 new SqlCommand(insertCrewSql, _connection, transaction))
             {
                 crewCommand.Parameters
                     .Add("@PersonID", SqlDbType.Int).Value = personID;
-                
+
                 var rateParameter = crewCommand.Parameters.Add("@HourlyRate", SqlDbType.Decimal);
                 rateParameter.Precision = 8;
                 rateParameter.Scale = 2;
@@ -186,7 +186,7 @@ public sealed class PersonRepository
                     .Add("@EmploymentType", SqlDbType.NVarChar, 10).Value = employmentType;
                 crewCommand.Parameters
                     .Add("@WeeklyHours", SqlDbType.Int).Value = weeklyHours;
-                
+
                 await crewCommand.ExecuteNonQueryAsync();
             }
 
@@ -203,10 +203,127 @@ public sealed class PersonRepository
 
             catch
             {
-                
+
             }
 
             throw;
         }
+    }
+
+    public async Task<int> AddPerformerAsync(
+        string name,
+        string telephone,
+        string email,
+        decimal fee,
+        IReadOnlyList<string> genres)
+    {
+        using SqlTransaction transaction = _connection.BeginTransaction();
+
+        try
+        {
+            const string insertPersonSql = """
+                INSERT INTO dbo.People(Name, Telephone, Email, Role)
+                OUTPUT INSERTED.PersonID
+                VALUES (@Name, @Telephone, @Email, N'Performer');
+                """;
+            int personID;
+            await using (var personCommand =
+                new SqlCommand(insertPersonSql, _connection, transaction))
+            {
+                personCommand.Parameters
+                    .Add("@Name", SqlDbType.NVarChar, 150).Value = name;
+                personCommand.Parameters
+                    .Add("@Telephone", SqlDbType.NVarChar, 30).Value = telephone;
+                personCommand.Parameters
+                    .Add("@Email", SqlDbType.NVarChar, 254).Value = email;
+
+                personID = (int)(await personCommand.ExecuteScalarAsync())!;
+            }
+
+            const string insertPerformerSql = """
+                INSERT INTO dbo.Performers (PersonID, Fee)
+                VALUES (@PersonID, @Fee);
+                """;
+
+            await using (var performerCommand =
+                new SqlCommand(insertPerformerSql, _connection, transaction))
+            {
+                performerCommand.Parameters
+                    .Add("@PersonID", SqlDbType.Int).Value = personID;
+
+                var feeParameter = performerCommand.Parameters.Add("@Fee", SqlDbType.Decimal);
+                feeParameter.Precision = 10;
+                feeParameter.Scale = 2;
+                feeParameter.Value = fee;
+
+                await performerCommand.ExecuteNonQueryAsync();
+            }
+
+            foreach (string genre in genres)
+            {
+                int genreID = await GetOrCreateGenreIDAsync(transaction, genre);
+
+                const string linkGenreSql = """
+                    INSERT INTO dbo.PerformerGenres (PersonID, GenreID)
+                    VALUES (@PersonID, @GenreID);
+                    """;
+
+                await using var linkCommand =
+                    new SqlCommand(linkGenreSql, _connection, transaction);
+
+                linkCommand.Parameters
+                    .Add("@PersonID", SqlDbType.Int).Value = personID;
+                linkCommand.Parameters
+                    .Add("@GenreID", SqlDbType.Int).Value = genreID;
+
+                await linkCommand.ExecuteNonQueryAsync();
+            }
+
+            transaction.Commit();
+            return personID;
+        }
+
+        catch
+        {
+            try
+            {
+                transaction.Rollback();
+            }
+            catch
+            {
+
+            }
+
+            throw;
+        }
+    }
+
+    private async Task<int> GetOrCreateGenreIDAsync(
+        SqlTransaction transaction,
+        string genre
+    )
+    {
+        const string sql = """
+            IF NOT EXISTS (
+                SELECT 1
+                FROM dbo.Genres
+                WHERE GenreName = @GenreName
+            )
+            BEGIN
+                INSERT INTO dbo.Genres (GenreName)
+                VALUES (@GenreName);
+            END;
+
+            SELECT GenreID
+            FROM dbo.Genres
+            WHERE GenreName = @GenreName;
+            """;
+
+        await using var command = new SqlCommand(sql, _connection, transaction);
+        command.Parameters
+            .Add("@GenreName", SqlDbType.NVarChar, 100).Value = genre;
+
+        return (int)(await command.ExecuteScalarAsync())!;
+
     }
 }

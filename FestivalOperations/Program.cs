@@ -53,7 +53,7 @@ try
 
         else if (choice == "3")
         {
-            await AddPerformerAsync(connection);
+            await AddPerformerAsync(personRepository);
         }
 
         else if (choice == "4")
@@ -251,7 +251,7 @@ static async Task AddCrewAsync(PersonRepository personRepository)
     Console.WriteLine($"New member added with PersonID {personID}.");
 }
 
-static async Task AddPerformerAsync(SqlConnection connection)
+static async Task AddPerformerAsync(PersonRepository personRepository)
 {
     string name = ReadRequired("Name: ", 150);
     string telephone = ReadRequired("Telephone: ", 30);
@@ -260,107 +260,15 @@ static async Task AddPerformerAsync(SqlConnection connection)
     decimal fee = ReadPerformerFee();
     List<string> genres = ReadGenres();
 
-    using SqlTransaction transaction = connection.BeginTransaction();
+    int personID = await personRepository.AddPerformerAsync(
+        name,
+        telephone,
+        email,
+        fee,
+        genres
+    );
 
-    try
-    {
-        const string insertPersonSql = """
-            INSERT INTO dbo.People (Name, Telephone, Email, Role)
-            OUTPUT INSERTED.PersonID
-            VALUES (@Name, @Telephone, @Email, N'Performer');
-            """;
-        
-        int personID;
-        
-        await using (var personCommand =
-            new SqlCommand(insertPersonSql, connection, transaction))
-        {
-            personCommand.Parameters
-                .Add("@Name", SqlDbType.NVarChar, 150).Value = name;
-            personCommand.Parameters
-                .Add("@Telephone", SqlDbType.NVarChar, 30).Value = telephone;
-            personCommand.Parameters
-                .Add("@Email", SqlDbType.NVarChar, 254).Value = email;
-            
-            personID = (int)(await personCommand.ExecuteScalarAsync())!;
-
-        }
-
-        const string insertPerformerSql = """
-            INSERT INTO dbo.Performers (PersonID, Fee)
-            VALUES (@PersonID, @Fee);
-            """;
-        
-        await using (var performerCommand =
-            new SqlCommand(insertPerformerSql, connection, transaction))
-        {
-            performerCommand.Parameters
-                .Add("@PersonID", SqlDbType.Int).Value = personID;
-            
-            var feeParameter =
-                performerCommand.Parameters.Add("@Fee", SqlDbType.Decimal);
-            feeParameter.Precision = 10;
-            feeParameter.Scale = 2;
-            feeParameter.Value = fee;
-
-            await performerCommand.ExecuteNonQueryAsync();
-        }
-
-        foreach (string genre in genres)
-        {
-            const string getGenreIDSql = """
-                IF NOT EXISTS (
-                    SELECT 1
-                    FROM dbo.Genres
-                    WHERE GenreName = @GenreName
-                )
-                BEGIN 
-                    INSERT INTO dbo.Genres (GenreName)
-                    VALUES (@GenreName);
-                END;
-
-                SELECT GenreID
-                FROM dbo.Genres
-                WHERE GenreName = @GenreName;
-                """;
-            
-            int genreID;
-
-            await using (var genreCommand =
-                new SqlCommand(getGenreIDSql, connection, transaction))
-            {
-                genreCommand.Parameters
-                    .Add("@GenreName", SqlDbType.NVarChar, 100).Value = genre;
-                
-                genreID = (int)(await genreCommand.ExecuteScalarAsync())!;
-            }
-
-            const string linkGenreSql = """
-                INSERT INTO dbo.PerformerGenres (PersonID, GenreID)
-                VALUES (@PersonID, @GenreID);
-                """;
-            
-            await using (var linkCommand =
-                new SqlCommand(linkGenreSql, connection, transaction))
-            {
-                linkCommand.Parameters
-                    .Add("@PersonID", SqlDbType.Int).Value = personID;
-                linkCommand.Parameters
-                    .Add("@GenreID", SqlDbType.Int).Value = genreID;
-                
-                await linkCommand.ExecuteNonQueryAsync();
-            }
-        }
-
-        transaction.Commit();
-        Console.WriteLine($"Performer added with PersonID {personID}.");
-    }
-
-    catch
-    {
-        transaction.Rollback();
-        throw;
-    }
+    Console.WriteLine($"Performer added with PersonID {personID}.");
 }
 
 static async Task AddVendorAsync(SqlConnection connection)
