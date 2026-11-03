@@ -168,7 +168,7 @@ public sealed class PersonRepository
                 INSERT INTO dbo.Crew
                     (PersonID, HourlyRate, EmploymentType, WeeklyHours)
                 VALUES
-                    (@PersonID, HourlyRate, @EmploymentType, @WeeklyHours);
+                    (@PersonID, @HourlyRate, @EmploymentType, @WeeklyHours);
                 """;
             
             await using (var crewCommand = 
