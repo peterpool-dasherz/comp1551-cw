@@ -763,6 +763,65 @@ static async Task EditPersonAsync(SqlConnection connection)
     }
 }
 
+static int ReadPersonID()
+{
+    while (true)
+    {
+        Console.Write("PersonID to edit: ");
+        string? input = Console.ReadLine();
+
+        if (int.TryParse(input, out int personID) && personID > 0)
+        {
+            return personID;
+        }
+
+        Console.WriteLine("Enter a valid PersonID that is larger than zero.");
+    }
+}
+
+static async Task<int> GetOrCreateGenreIDAsync(SqlConnection connection, SqlTransaction transaction, string genre)
+{
+    const string sql = """
+        IF NOT EXISTS (
+            SELECT 1 FROM dbo.Genres WHERE GenreName = @Name
+        )
+        BEGIN
+            INSERT INTO dbo.Genres (GenreName) VALUES (@Name);
+        END;
+
+        SELECT GenreID FROM dbo.Genres WHERE GenreName = @Name;
+        """;
+
+    await using var command = new SqlCommand(sql, connection, transaction);
+    command.Parameters.Add("@Name", SqlDbType.NVarChar, 100).Value = genre;
+
+    return (int)(await command.ExecuteScalarAsync())!;
+}
+
+static async Task<int> GetOrCreateCategoryIDAsync(SqlConnection connection, SqlTransaction transaction, string category)
+{
+    const string sql = """
+        IF NOT EXISTS (
+            SELECT 1
+            FROM dbo.ProductCategories
+            WHERE CategoryName = @Name
+        )
+        BEGIN
+            INSERT INTO dbo.ProductCategories (CategoryName)
+            VALUES (@Names);
+        END;
+
+        SELECT CategoryID
+        FROM dbo.ProductCategories
+        WHERE CategoryName = @Name;
+        """;
+    
+    await using var command = new SqlCommand(sql, connection, transaction);
+    command.Parameters.Add("@Name", SqlDbType.NVarChar, 100).Value = category;
+
+    return (int)(await command.ExecuteScalarAsync())!;
+}
+
 static string ReadRequired(string prompt, int maxLength)
 {
     while (true)
