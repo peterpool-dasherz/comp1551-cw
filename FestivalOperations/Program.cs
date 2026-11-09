@@ -58,7 +58,7 @@ try
 
         else if (choice == "4")
         {
-            await AddVendorAsync(connection);
+            await AddVendorAsync(personRepository);
         }
 
         else if (choice == "5")
@@ -271,113 +271,21 @@ static async Task AddPerformerAsync(PersonRepository personRepository)
     Console.WriteLine($"Performer added with PersonID {personID}.");
 }
 
-static async Task AddVendorAsync(SqlConnection connection)
+static async Task AddVendorAsync(PersonRepository personRepository)
 {
     string name = ReadRequired("Name: ", 150);
     string telephone = ReadRequired("Telephone: ", 30);
     string email = ReadRequired("Email: ", 254);
     List<string> categories = ReadCategories();
 
-    using SqlTransaction transaction = connection.BeginTransaction();
+    int personID = await personRepository.AddVendorAsync(
+        name,
+        telephone,
+        email,
+        categories
+    );
 
-    try
-    {
-        const string insertPersonSql = """
-            INSERT INTO dbo.People (Name, Telephone, Email, Role)
-            OUTPUT INSERTED.PersonID
-            VALUES (@Name, @Telephone, @Email, N'Vendor');
-            """;
-        
-        int personID;
-        
-        await using (var personCommand = 
-            new SqlCommand(insertPersonSql, connection, transaction))
-        {
-            personCommand.Parameters
-                .Add("@Name", SqlDbType.NVarChar, 150).Value = name;
-            personCommand.Parameters
-                .Add("@Telephone", SqlDbType.NVarChar, 30).Value = telephone;
-            personCommand.Parameters
-                .Add("@Email", SqlDbType.NVarChar, 254).Value = email;
-            
-            personID = (int)(await personCommand.ExecuteScalarAsync())!;
-        }
-
-        const string insertVendorSql = """
-            INSERT INTO dbo.Vendors (PersonID)
-            VALUES (@PersonID);
-            """;
-        
-        await using (var vendorCommand =
-            new SqlCommand(insertVendorSql, connection, transaction))
-        {
-            vendorCommand.Parameters
-                .Add("@PersonID", SqlDbType.Int).Value = personID;
-            
-            await vendorCommand.ExecuteNonQueryAsync();
-        }
-
-        foreach (string category in categories)
-        {
-            const string getCategoryIDSql = """
-                IF NOT EXISTS (
-                    SELECT 1
-                    FROM dbo.ProductCategories
-                    WHERE CategoryName = @CategoryName    
-                )
-                BEGIN
-                    INSERT INTO dbo.ProductCategories (CategoryName)
-                    VALUES (@CategoryName);
-                END;
-
-                SELECT CategoryID
-                FROM dbo.ProductCategories
-                WHERE CategoryName = @CategoryName;
-                """;
-            
-            int categoryID;
-
-            await using (var categoryCommand = 
-                new SqlCommand(getCategoryIDSql, connection, transaction))
-            {
-                categoryCommand.Parameters
-                    .Add("@CategoryName", SqlDbType.NVarChar, 100).Value = category;
-                
-                categoryID = (int)(await categoryCommand.ExecuteScalarAsync())!;
-            }
-
-            const string linkCategorySql = """
-                INSERT INTO dbo.VendorCategories (PersonID, CategoryID)
-                VALUES (@PersonID, @CategoryID);
-                """;
-            await using (var linkCommand = 
-                new SqlCommand(linkCategorySql, connection, transaction))
-            {
-                linkCommand.Parameters
-                    .Add("@PersonID", SqlDbType.Int).Value = personID;
-                linkCommand.Parameters
-                    .Add("@CategoryID", SqlDbType.Int).Value = categoryID;
-                
-                await linkCommand.ExecuteNonQueryAsync();
-            }
-        }
-
-        transaction.Commit();
-        Console.WriteLine($"Vendor added.");
-    }
-    catch
-    {
-        try
-        {
-            transaction.Rollback();
-        }
-        catch
-        {
-            // If an error persists, keep the original database.
-        }
-
-        throw;
-    }
+    Console.WriteLine($"Vendor added with PersonID {personID}.");
 }
 
 static async Task EditPersonAsync(SqlConnection connection)

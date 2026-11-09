@@ -326,4 +326,121 @@ public sealed class PersonRepository
         return (int)(await command.ExecuteScalarAsync())!;
 
     }
+
+    public async Task<int> AddVendorAsync(
+        string name,
+        string telephone, 
+        string email,
+        IReadOnlyList<string> categories
+    )
+    {
+        using SqlTransaction transaction = _connection.BeginTransaction();
+
+        try
+        {
+            const string insertPersonSql = """
+                INSERT INTO dbo.People (Name, Telephone, Email, Role)
+                OUTPUT INSERTED.PersonID
+                VALUES (@Name, @Telephone, @Email, N'Vendor');
+                """;
+            
+            int personID;
+
+            await using (var personCommand = 
+                new SqlCommand(insertPersonSql, _connection, transaction))
+            {
+                personCommand.Parameters
+                    .Add("@Name", SqlDbType.NVarChar, 150).Value = name;
+                personCommand.Parameters
+                    .Add("@Telephone", SqlDbType.NVarChar, 30).Value = telephone;
+                personCommand.Parameters 
+                    .Add("@Email", SqlDbType.NVarChar, 254).Value = email;
+                
+                personID = (int)(await personCommand.ExecuteScalarAsync())!;
+            }
+
+            const string insertVendorSql = """
+                INSERT INTO dbo.Vendors (PersonID)
+                VALUES (@PersonID);
+                """;
+            
+            await using (var vendorCommand = 
+                new SqlCommand(insertVendorSql, _connection, transaction))
+            {
+                vendorCommand.Parameters
+                    .Add("@PersonID", SqlDbType.Int).Value = personID;
+                
+                await vendorCommand.ExecuteNonQueryAsync();
+            }
+
+            foreach (string category in categories)
+            {
+                int categoryID = await GetOrCreateCategoryIDAsync(
+                    transaction,
+                    category
+                );
+
+                const string linkCategorySql = """
+                    INSERT INTO dbo.VendorCategories (PersonID, CategoryID)
+                    VALUES (@PersonID, @CategoryID);
+                    """;
+                
+                await using var linkCommand =
+                    new SqlCommand(linkCategorySql, _connection, transaction);
+                
+                linkCommand.Parameters
+                    .Add("@PersonID", SqlDbType.Int).Value = personID;
+                linkCommand.Parameters
+                    .Add("@CategoryID", SqlDbType.Int).Value = categoryID;
+                
+                await linkCommand.ExecuteNonQueryAsync();
+            }
+
+            transaction.Commit();
+            return personID;
+        }
+
+        catch
+        {
+            try
+            {
+                transaction.Rollback();
+            }
+
+            catch
+            {
+                
+            }
+
+            throw;
+        }
+    }
+
+    private async Task<int> GetOrCreateCategoryIDAsync(
+        SqlTransaction transaction,
+        string category
+    )
+    {
+        const string sql = """
+            IF NOT EXISTS (
+                SELECT 1
+                FROM dbo.ProductCategories
+                WHERE CategoryName = @CategoryName
+            )
+            BEGIN
+                INSERT INTO dbo.ProductCategories (CategoryName)
+                VALUES (@CategoryName);
+            END;
+
+            SELECT CategoryID
+            FROM dbo.ProductCategories
+            WHERE CategoryName = @CategoryName;
+            """;
+        
+        await using var command = new SqlCommand(sql, _connection, transaction);
+        command.Parameters
+            .Add("@CategoryName", SqlDbType.NVarChar, 100).Value = category;
+        
+        return (int)(await command.ExecuteScalarAsync())!;
+    }
 }
