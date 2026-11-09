@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using Microsoft.Data.SqlClient;
 using FestivalOperations.Data;
+using FestivalOperations.Views;
 
 string? connectionString =
     Environment.GetEnvironmentVariable("FESTIVAL_DB_CONNECTION");
@@ -17,23 +18,13 @@ try
     await connection.OpenAsync();
 
     var personRepository = new PersonRepository(connection);
+    var consoleView = new ConsoleView();
 
    Console.WriteLine("Connected to FestivalOperationsDB.");
 
    while (true)
     {
-        Console.WriteLine();
-        Console.WriteLine("1. List people");
-        Console.WriteLine("2. Add crew member");
-        Console.WriteLine("3. Add performer");
-        Console.WriteLine("4. Add vendor");
-        Console.WriteLine("5. View people by role");
-        Console.WriteLine("6. Edit person by ID");
-        Console.WriteLine("7. Delete person by ID");
-        Console.WriteLine("0. Exit");
-        Console.Write("Choose an option: ");
-
-        string? choice = Console.ReadLine()?.Trim();
+        string? choice = consoleView.ReadMainMenuChoice();
 
         if (choice == "0")
         {
@@ -42,7 +33,7 @@ try
 
         else if (choice == "1")
         {
-            await ListPeopleAsync(personRepository);
+            await ListPeopleAsync(personRepository, consoleView);
         }
 
         else if (choice == "2")
@@ -62,7 +53,7 @@ try
 
         else if (choice == "5")
         {
-            await ViewPeopleByRoleAsync(personRepository);
+            await ViewPeopleByRoleAsync(personRepository, consoleView);
         }
 
         else if (choice == "6")
@@ -77,7 +68,7 @@ try
 
         else
         {
-            Console.WriteLine("Please choose an option from the list above.");
+            consoleView.ShowInvalidMenuChoice();
         }
     }
 }
@@ -87,39 +78,19 @@ catch (SqlException ex)
     Console.WriteLine($"Database error: {ex.Message}");
 }
 
-static async Task ListPeopleAsync(PersonRepository personRepository)
+static async Task ListPeopleAsync(PersonRepository personRepository, ConsoleView consoleView)
 {
     IReadOnlyList<PersonSummary> people = await personRepository.GetAllPeopleAsync();
-
-    Console.WriteLine();
-    Console.WriteLine("ID | Name | Role");
-
-    if (people.Count == 0)
-    {
-        Console.WriteLine("No people found.");
-        return;
-    }
-
-    foreach (PersonSummary person in people)
-    {
-        Console.WriteLine($"{person.PersonID} | {person.Name} | {person.Role}");
-    }
+    consoleView.ShowPeople(people);
 }
 
-static async Task ViewPeopleByRoleAsync(PersonRepository personRepository)
+static async Task ViewPeopleByRoleAsync(PersonRepository personRepository, ConsoleView consoleView)
 {
     string? role = null;
 
     while (role is null)
     {
-        Console.WriteLine();
-        Console.WriteLine("1. Performers");
-        Console.WriteLine("2: Crew");
-        Console.WriteLine("3. Vendors");
-        Console.WriteLine("0. Back to main menu");
-        Console.Write("Choose a role: ");
-
-        string? choice = Console.ReadLine()?.Trim();
+       string? choice = consoleView.ReadRoleChoice();
 
         role = choice switch
         {
@@ -132,7 +103,7 @@ static async Task ViewPeopleByRoleAsync(PersonRepository personRepository)
 
         if (role is null)
         {
-            Console.WriteLine("Please choose from the options above.");
+            consoleView.ShowInvalidRoleChoice();
         }
     }
 
@@ -144,22 +115,7 @@ static async Task ViewPeopleByRoleAsync(PersonRepository personRepository)
     IReadOnlyList<PersonRoleSummary> people =
         await personRepository.GetPeopleByRoleAsync(role);
     
-    Console.WriteLine();
-    Console.WriteLine("ID | Name | Telephone | Email | Role | Details");
-
-    if (people.Count == 0)
-    {
-        Console.WriteLine($"No {role.ToLowerInvariant()} records found.");
-        return;
-    }
-
-    foreach (PersonRoleSummary person in people)
-    {
-        Console.WriteLine(
-            $"{person.PersonID} | {person.Name} | {person.Telephone} | " + 
-            $"{person.Email} | {person.Role} | {person.RoleDetails}"
-        );
-    }
+    consoleView.ShowPeopleByRole(role, people);
 }
 
 static async Task AddCrewAsync(PersonRepository personRepository)
@@ -478,7 +434,7 @@ static List<string> ReadGenres()
 
         else if (genres.Any(genre => genre.Length > 100))
         {
-            Console.WriteLine("Each genre must be 100 characters or more.");
+            Console.WriteLine("Each genre must be 100 characters or fewer.");
         }
 
         else
