@@ -443,4 +443,45 @@ public sealed class PersonRepository
         
         return (int)(await command.ExecuteScalarAsync())!;
     }
+
+    public async Task<PersonSummary?> GetPersonByIDAsync(int personID)
+    {
+        const string sql = """
+            SELECT PersonID, Name, Role
+            FROM dbo.People
+            WHERE PersonID = @PersonID;
+            """;
+
+        await using var command = new SqlCommand(sql, _connection);
+        command.Parameters
+            .Add("@PersonID", SqlDbType.Int).Value = personID;
+        
+        await using var reader = await command.ExecuteReaderAsync();
+
+        if (!await reader.ReadAsync())
+        {
+            return null;
+        }
+
+        return new PersonSummary(
+            reader.GetInt32(0),
+            reader.GetString(1),
+            reader.GetString(2)
+        );
+    }
+
+    public async Task<bool> DeletePersonAsync(int personID)
+    {
+        const string sql = """
+            DELETE FROM dbo.People
+            WHERE PersonID = @PersonID;
+            """;
+
+        await using var command = new SqlCommand(sql, _connection);
+        command.Parameters
+            .Add("@PersonID", SqlDbType.Int).Value = personID;
+        
+        int rowsDeleted = await command.ExecuteNonQueryAsync();
+        return rowsDeleted == 1;
+    }
 }

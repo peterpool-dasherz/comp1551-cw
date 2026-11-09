@@ -63,7 +63,7 @@ try
 
         else if (choice == "5")
         {
-            await ViewPeopleByRoleAsync(connection);
+            await ViewPeopleByRoleAsync(personRepository);
         }
 
         else if (choice == "6")
@@ -73,7 +73,7 @@ try
 
         else if (choice == "7")
         {
-            await DeletePersonAsync(connection);
+            await DeletePersonAsync(personRepository);
         }
 
         else
@@ -107,7 +107,7 @@ static async Task ListPeopleAsync(PersonRepository personRepository)
     }
 }
 
-static async Task ViewPeopleByRoleAsync(SqlConnection connection)
+static async Task ViewPeopleByRoleAsync(PersonRepository personRepository)
 {
     string? role = null;
 
@@ -142,90 +142,24 @@ static async Task ViewPeopleByRoleAsync(SqlConnection connection)
         return;
     }
 
-    const string sql = """
-        SELECT
-            p.PersonID,
-            p.Name,
-            p.Telephone,
-            p.Email,
-            p.Role,
-            CASE p.Role
-                WHEN N'Performer' THEN CONCAT(
-                    N'Fee: ',
-                    CONVERT(nvarchar(30), performer.Fee),
-                    N'; Genres: ',
-                    COALESCE(
-                        (
-                            SELECT STRING_AGG(g.GenreName, N', ')
-                            FROM dbo.PerformerGenres AS pg
-                            INNER JOIN dbo.Genres AS g
-                                ON g.GenreID = pg.GenreID
-                            WHERE pg.PersonID = p.PersonID
-                        ),
-                        N'None'
-                    )
-                )
-                WHEN N'Crew' THEN CONCAT(
-                    N'Hourly rate: ',
-                    CONVERT(nvarchar(30), crew.HourlyRate),
-                    N'; Employment: ',
-                    crew.EmploymentType,
-                    N'; Weekly hours: ',
-                    crew.WeeklyHours
-                )
-                WHEN N'Vendor' THEN CONCAT(
-                    N'Categories: ',
-                    COALESCE(
-                        (
-                            SELECT STRING_AGG(category.CategoryName, N', ')
-                            FROM dbo.VendorCategories AS vc
-                            INNER JOIN dbo.ProductCategories AS category
-                                ON category.CategoryID = vc.CategoryID
-                            WHERE vc.PersonID = p.PersonID
-                        ),
-                        N'None'
-                    )
-                )
-            END AS RoleDetails
-        FROM dbo.People AS p
-        LEFT JOIN dbo.Performers AS performer
-            ON performer.PersonID = p.PersonID
-        LEFT JOIN dbo.Crew AS crew
-            ON crew.PersonID = p.PersonID
-        WHERE p.Role = @Role
-        ORDER BY p.PersonID;
-        """;
-    await using var command = new SqlCommand(sql, connection);
-    command.Parameters
-        .Add("@Role", SqlDbType.NVarChar, 20).Value = role;
+    IReadOnlyList<PersonRoleSummary> people =
+        await personRepository.GetPeopleByRoleAsync(role);
     
-    await using var reader = await command.ExecuteReaderAsync();
-
-    bool foundPeople = false;
-
     Console.WriteLine();
     Console.WriteLine("ID | Name | Telephone | Email | Role | Details");
 
-    while (await reader.ReadAsync())
-    {
-        foundPeople = true;
-
-        int personID = reader.GetInt32(0);
-        string name = reader.GetString(1);
-        string telephone = reader.GetString(2);
-        string email = reader.GetString(3);
-        string personRole = reader.GetString(4);
-        string roleDetails = reader.GetString(5);
-
-        Console.WriteLine(
-            $"{personID} | {name} | {telephone} | {email} | " +
-            $"{personRole} | {roleDetails}"
-        );
-    }
-
-    if (!foundPeople)
+    if (people.Count == 0)
     {
         Console.WriteLine($"No {role.ToLowerInvariant()} records found.");
+        return;
+    }
+
+    foreach (PersonRoleSummary person in people)
+    {
+        Console.WriteLine(
+            $"{person.PersonID} | {person.Name} | {person.Telephone} | " + 
+            $"{person.Email} | {person.Role} | {person.RoleDetails}"
+        );
     }
 }
 
@@ -539,41 +473,20 @@ static int ReadPersonID(string prompt)
     }
 }
 
-static async Task DeletePersonAsync(SqlConnection connection)
+static async Task DeletePersonAsync(PersonRepository personRepository)
 {
     int personID = ReadPersonID("PersonID to delete: ");
 
-    const string findPersonSql = """
-        SELECT Name, Role
-        FROM dbo.People
-        WHERE PersonID = @PersonID;
-        """;
-    
-    string? name = null;
-    string? role = null;
+    PersonSummary? person = await personRepository.GetPersonByIDAsync(personID);
 
-    await using (var findCommand = new SqlCommand(findPersonSql, connection))
+    if (person is null)
     {
-        findCommand.Parameters
-            .Add("@PersonID", SqlDbType.Int).Value = personID;
-
-        await using var reader = await findCommand.ExecuteReaderAsync();
-
-        if (await reader.ReadAsync())
-        {
-            name = reader.GetString(0);
-            role = reader.GetString(1);
-        }
-    }
-
-    if (name is null || role is null)
-    {
-        Console.WriteLine($"No person found with this ID. Please try again.");
+        Console.WriteLine($"No person found with this ID {personID}.");
         return;
     }
 
-    Console.WriteLine($"Found: {name} ({role}), PersonID {personID}.");
-    Console.Write("Type YES to confirm deletion.");
+    Console.WriteLine($"Found: {person.Name} ({person.Role}), PersonID {person.PersonID}.");
+    Console.Write("Type YES to confirm deletion: ");
 
     string? confirmation = Console.ReadLine()?.Trim();
 
@@ -583,52 +496,15 @@ static async Task DeletePersonAsync(SqlConnection connection)
         return;
     }
 
-    using SqlTransaction transaction = connection.BeginTransaction();
+    bool deleted = await personRepository.DeletePersonAsync(personID);
 
-    try
+    if (deleted)
     {
-        const string deleteSql = """
-            DELETE FROM dbo.People
-            WHERE PersonID = @PersonID;
-            """;
-        
-        int rowsDeleted;
-
-        await using (var deleteCommand = 
-            new SqlCommand(deleteSql, connection, transaction))
-        {
-            deleteCommand.Parameters
-                .Add("@PersonID", SqlDbType.Int).Value = personID;
-            
-            rowsDeleted = await deleteCommand.ExecuteNonQueryAsync();
-        }
-
-        transaction.Commit();
-
-        if (rowsDeleted == 1)
-        {
-            Console.WriteLine($"Person {personID} was deleted.");
-        }
-
-        else
-        {
-            Console.WriteLine($"Person {personID} was not found. Please try again.");
-        }
+        Console.WriteLine($"Person {personID} was deleted.");
     }
-
-    catch
+    else
     {
-        try
-        {
-            transaction.Rollback();
-        }
-
-        catch
-        {
-            
-        }
-
-        throw;
+        Console.WriteLine($"Person {personID} was not found.");
     }
 }
 
