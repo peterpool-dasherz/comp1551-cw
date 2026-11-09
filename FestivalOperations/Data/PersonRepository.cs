@@ -484,4 +484,205 @@ public sealed class PersonRepository
         int rowsDeleted = await command.ExecuteNonQueryAsync();
         return rowsDeleted == 1;
     }
+
+    public async Task<bool> UpdatePersonAsync(
+        int personID,
+        string role,
+        string name,
+        string telephone,
+        string email,
+        decimal fee,
+        IReadOnlyList<string> genres,
+        decimal hourlyRate,
+        string employmentType,
+        int weeklyHours,
+        IReadOnlyList<string> categories
+    )
+    {
+        using SqlTransaction transaction = _connection.BeginTransaction();
+
+        try
+        {
+            const string updatePersonSql = """
+                UPDATE dbo.People
+                SET Name = @Name,
+                    Telephone = @Telephone,
+                    Email = @Email
+                WHERE PersonID = @PersonID;
+                """;
+
+            int rowsUpdated;
+
+            await using (var personCommand =
+                new SqlCommand(updatePersonSql, _connection, transaction))
+            {
+                personCommand.Parameters
+                    .Add("@Name", SqlDbType.NVarChar, 150).Value = name;
+                personCommand.Parameters
+                    .Add("@Telephone", SqlDbType.NVarChar, 30).Value = telephone;
+                personCommand.Parameters
+                    .Add("@Email", SqlDbType.NVarChar, 254).Value = email;
+                personCommand.Parameters
+                    .Add("@PersonID", SqlDbType.Int).Value = personID;
+
+                rowsUpdated = await personCommand.ExecuteNonQueryAsync();
+
+            }
+
+            if (rowsUpdated == 0)
+            {
+                transaction.Rollback();
+                return false;
+            }
+
+            if (role == "Performer")
+            {
+                const string updatePerformerSql = """
+                    UPDATE dbo.Performers
+                    SET Fee = @Fee
+                    WHERE PersonID = @PersonID;
+                    """;
+
+                await using (var performerCommand =
+                    new SqlCommand(updatePerformerSql, _connection, transaction))
+                {
+                    var feeParameter = performerCommand.Parameters.Add("@Fee", SqlDbType.Decimal);
+                    feeParameter.Precision = 10;
+                    feeParameter.Scale = 2;
+                    feeParameter.Value = fee;
+
+                    performerCommand.Parameters
+                        .Add("@PersonID", SqlDbType.Int).Value = personID;
+
+                    await performerCommand.ExecuteNonQueryAsync();
+                }
+
+                const string deleteGenresSql = """
+                    DELETE FROM dbo.PerformerGenres
+                    WHERE PersonID = @PersonID;
+                    """;
+
+                await using (var deleteGenresCommand =
+                    new SqlCommand(deleteGenresSql, _connection, transaction))
+                {
+                    deleteGenresCommand.Parameters
+                        .Add("@PersonID", SqlDbType.Int).Value = personID;
+
+                    await deleteGenresCommand.ExecuteNonQueryAsync();
+                }
+
+                foreach (string genre in genres)
+                {
+                    int genreID = await GetOrCreateGenreIDAsync(transaction, genre);
+
+                    const string linkGenreSql = """
+                        INSERT INTO dbo.PerformerGenres (PersonID, GenreID)
+                        VALUES (@PersonID, @GenreID);
+                        """;
+
+                    await using var linkCommand =
+                        new SqlCommand(linkGenreSql, _connection, transaction);
+
+                    linkCommand.Parameters
+                        .Add("@PersonID", SqlDbType.Int).Value = personID;
+                    linkCommand.Parameters
+                        .Add("@GenreID", SqlDbType.Int).Value = genreID;
+
+                    await linkCommand.ExecuteNonQueryAsync();
+                }
+            }
+
+            else if (role == "Crew")
+            {
+                const string updateCrewSql = """
+                    UPDATE dbo.Crew
+                    SET HourlyRate = @HourlyRate,
+                        EmploymentType = @EmploymentType,
+                        WeeklyHours = @WeeklyHours
+                    WHERE PersonID = @PersonID;
+                    """;
+
+                await using var crewCommand =
+                    new SqlCommand(updateCrewSql, _connection, transaction);
+
+                var rateParameter =
+                    crewCommand.Parameters.Add("@HourlyRate", SqlDbType.Decimal);
+                rateParameter.Precision = 8;
+                rateParameter.Scale = 2;
+                rateParameter.Value = hourlyRate;
+
+                crewCommand.Parameters
+                    .Add("@EmploymentType", SqlDbType.NVarChar, 10).Value =
+                        employmentType;
+                crewCommand.Parameters
+                    .Add("@WeeklyHours", SqlDbType.Int).Value = weeklyHours;
+                crewCommand.Parameters
+                    .Add("@PersonID", SqlDbType.Int).Value = personID;
+
+                await crewCommand.ExecuteNonQueryAsync();
+            }
+
+            else if (role == "Vendor")
+            {
+                const string deleteCategoriesSql = """
+                    DELETE FROM dbo.VendorCategories
+                    WHERE PersonID = @PersonID;
+                    """;
+
+                await using (var deleteCategoriesCommand =
+                    new SqlCommand(deleteCategoriesSql, _connection, transaction))
+                {
+                    deleteCategoriesCommand.Parameters
+                        .Add("@PersonID", SqlDbType.Int).Value = personID;
+
+                    await deleteCategoriesCommand.ExecuteNonQueryAsync();
+                }
+
+                foreach (string category in categories)
+                {
+                    int categoryID = await GetOrCreateCategoryIDAsync(
+                        transaction,
+                        category
+                    );
+
+                    const string linkCategorySql = """
+                        INSERT INTO dbo.VendorCategories (PersonID, CategoryID)
+                        VALUES (@PersonID, @CategoryID);
+                        """;
+
+                    await using var linkCommand =
+                        new SqlCommand(linkCategorySql, _connection, transaction);
+
+                    linkCommand.Parameters
+                        .Add("@PersonID", SqlDbType.Int).Value = personID;
+                    linkCommand.Parameters
+                        .Add("@CategoryID", SqlDbType.Int).Value = categoryID;
+
+                    await linkCommand.ExecuteNonQueryAsync();
+                }
+            }
+
+            else
+            {
+                throw new ArgumentException("Unknown person role.", nameof(role));
+            }
+
+            transaction.Commit();
+            return true;
+        }
+
+        catch
+        {
+            try
+            {
+                transaction.Rollback();
+            }
+            catch
+            {
+                // Keep the original database error if rollback also fails.
+            }
+
+            throw;
+        }
+    }
 }

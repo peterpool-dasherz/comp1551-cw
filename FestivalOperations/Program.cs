@@ -1,5 +1,4 @@
-﻿using System.Data;
-using System.Globalization;
+﻿using System.Globalization;
 using Microsoft.Data.SqlClient;
 using FestivalOperations.Data;
 
@@ -68,7 +67,7 @@ try
 
         else if (choice == "6")
         {
-            await EditPersonAsync(connection);
+            await EditPersonAsync(personRepository);
         }
 
         else if (choice == "7")
@@ -222,31 +221,19 @@ static async Task AddVendorAsync(PersonRepository personRepository)
     Console.WriteLine($"Vendor added with PersonID {personID}.");
 }
 
-static async Task EditPersonAsync(SqlConnection connection)
+static async Task EditPersonAsync(PersonRepository personRepository)
 {
     int personID = ReadPersonID("PersonID to edit: ");
 
-    const string getRoleSql = """
-        SELECT Role
-        FROM dbo.People
-        WHERE PersonID = @PersonID;
-        """;
-    
-    string? role;
+    PersonSummary? person = await personRepository.GetPersonByIDAsync(personID);
 
-    await using (var roleCommand = new SqlCommand(getRoleSql, connection))
-    {
-        roleCommand.Parameters
-            .Add("@PersonID", SqlDbType.Int).Value = personID;
-        
-        role = (string?)await roleCommand.ExecuteScalarAsync();
-    }
-
-    if (role is null)
+    if (person is null)
     {
         Console.WriteLine($"No person found with PersonID {personID}.");
         return;
     }
+
+    string role = person.Role;
 
     Console.WriteLine($"Editing {role} with PersonID {personID}.");
     string name = ReadRequired("New name: ", 150);
@@ -284,177 +271,25 @@ static async Task EditPersonAsync(SqlConnection connection)
         return;
     }
 
-    using SqlTransaction transaction = connection.BeginTransaction();
+    bool updated = await personRepository.UpdatePersonAsync(
+        personID,
+        role,
+        name,
+        telephone,
+        email,
+        fee,
+        genres,
+        hourlyRate,
+        employmentType,
+        weeklyHours,
+        categories
+    );
 
-    try
-    {
-        const string updatePersonSql = """
-            UPDATE dbo.People
-            SET Name = @Name,
-                Telephone = @Telephone,
-                Email = @Email
-            WHERE PersonID = @PersonID;
-            """;
-        
-        await using (var personCommand = 
-            new SqlCommand(updatePersonSql, connection, transaction))
-        {
-            personCommand.Parameters
-                .Add("@Name", SqlDbType.NVarChar, 150).Value = name;
-            personCommand.Parameters
-                .Add("@Telephone", SqlDbType.NVarChar, 30).Value = telephone;
-            personCommand.Parameters
-                .Add("@Email", SqlDbType.NVarChar, 254).Value = email;
-            personCommand.Parameters
-                .Add("@PersonID", SqlDbType.Int).Value = personID;
-            
-            await personCommand.ExecuteNonQueryAsync();
-        }
-
-        if (role == "Performer")
-        {
-            const string updatePerformerSql = """
-                UPDATE dbo.Performers
-                SET Fee = @Fee
-                WHERE PersonID = @PersonID;
-                """;
-            
-            await using (var performerCommand =
-                new SqlCommand(updatePerformerSql, connection, transaction))
-            {
-                var feeParameter =
-                    performerCommand.Parameters.Add("@Fee", SqlDbType.Decimal);
-                feeParameter.Precision = 10;
-                feeParameter.Scale = 2;
-                feeParameter.Value = fee;
-
-                performerCommand.Parameters
-                    .Add("@PersonID", SqlDbType.Int).Value = personID;
-                
-                await performerCommand.ExecuteNonQueryAsync();
-            }
-
-            await using (var deleteGenresCommand = 
-                new SqlCommand(
-                    "DELETE FROM dbo.PerformerGenres WHERE PersonID = @PersonID;",
-                    connection,
-                    transaction))
-            {
-                deleteGenresCommand.Parameters
-                    .Add("@PersonID", SqlDbType.Int).Value = personID;
-                await deleteGenresCommand.ExecuteNonQueryAsync();
-            }
-
-            foreach (string genre in genres)
-            {
-                int genreID = await GetOrCreateGenreIDAsync(
-                    connection,
-                    transaction, 
-                    genre
-                );
-
-                await using var linkCommand = new SqlCommand(
-                    """
-                    INSERT INTO dbo.PerformerGenres(PersonID, GenreID)
-                    VALUES (@PersonID, @GenreID);
-                    """,
-                    connection,
-                    transaction
-                );
-
-                linkCommand.Parameters
-                    .Add("@PersonID", SqlDbType.Int).Value = personID;
-                linkCommand.Parameters
-                    .Add("@GenreID", SqlDbType.Int).Value = genreID;
-                
-                await linkCommand.ExecuteNonQueryAsync();
-            }
-        }
-
-        else if (role == "Crew")
-        {
-            const string updateCrewSql = """
-                UPDATE dbo.Crew
-                SET HourlyRate = @HourlyRate,
-                    EmploymentType = @EmploymentType,
-                    WeeklyHours = @WeeklyHours
-                WHERE PersonID = @PersonID;
-                """;
-            
-            await using var crewCommand = 
-                new SqlCommand(updateCrewSql, connection, transaction);
-            var rateParameter = crewCommand.Parameters.Add("@HourlyRate", SqlDbType.Decimal);
-            rateParameter.Precision = 8;
-            rateParameter.Scale = 2;
-            rateParameter.Value = hourlyRate;
-
-            crewCommand.Parameters
-                .Add("@EmploymentType", SqlDbType.NVarChar, 10).Value = employmentType;
-            crewCommand.Parameters
-                .Add("@WeeklyHours", SqlDbType.Int).Value = weeklyHours;
-            crewCommand.Parameters
-                .Add("@PersonID", SqlDbType.Int).Value = personID;
-            
-            await crewCommand.ExecuteNonQueryAsync();
-        }
-
-        else if (role == "Vendor")
-        {
-            await using (var deleteCategoriesCommand =
-                new SqlCommand(
-                    "DELETE FROM dbo.VendorCategories WHERE PersonID = @PersonID;",
-                    connection,
-                    transaction))
-            {
-                deleteCategoriesCommand.Parameters
-                    .Add("@PersonID", SqlDbType.Int).Value = personID;
-                await deleteCategoriesCommand.ExecuteNonQueryAsync();
-            }
-
-            foreach (string category in categories)
-            {
-                int categoryID = await GetOrCreateCategoryIDAsync(
-                    connection,
-                    transaction,
-                    category
-                );
-
-                await using var linkCommand = new SqlCommand(
-                    """
-                    INSERT INTO dbo.VendorCategories (PersonID, CategoryID)
-                    VALUES (@PersonID, @CategoryID);
-                    """,
-                    connection,
-                    transaction
-                );
-
-                linkCommand.Parameters
-                    .Add("@PersonID", SqlDbType.Int).Value = personID;
-                linkCommand.Parameters
-                    .Add("@CategoryID", SqlDbType.Int).Value = categoryID;
-
-                await linkCommand.ExecuteNonQueryAsync();
-            }
-        }
-
-        transaction.Commit();
-        Console.WriteLine($"Person {personID} updated successfully.");
-    }
-
-    catch
-    {
-        try
-        {
-            transaction.Rollback();
-        }
-
-        catch
-        {
-            
-        }
-
-        throw;
-    }
+    Console.WriteLine(
+        updated
+            ? $"Person {personID} updated successfully."
+            : $"Person {personID} was not found."
+    );
 }
 
 static int ReadPersonID(string prompt)
@@ -506,49 +341,6 @@ static async Task DeletePersonAsync(PersonRepository personRepository)
     {
         Console.WriteLine($"Person {personID} was not found.");
     }
-}
-
-static async Task<int> GetOrCreateGenreIDAsync(SqlConnection connection, SqlTransaction transaction, string genre)
-{
-    const string sql = """
-        IF NOT EXISTS (
-            SELECT 1 FROM dbo.Genres WHERE GenreName = @Name
-        )
-        BEGIN
-            INSERT INTO dbo.Genres (GenreName) VALUES (@Name);
-        END;
-
-        SELECT GenreID FROM dbo.Genres WHERE GenreName = @Name;
-        """;
-
-    await using var command = new SqlCommand(sql, connection, transaction);
-    command.Parameters.Add("@Name", SqlDbType.NVarChar, 100).Value = genre;
-
-    return (int)(await command.ExecuteScalarAsync())!;
-}
-
-static async Task<int> GetOrCreateCategoryIDAsync(SqlConnection connection, SqlTransaction transaction, string category)
-{
-    const string sql = """
-        IF NOT EXISTS (
-            SELECT 1
-            FROM dbo.ProductCategories
-            WHERE CategoryName = @Name
-        )
-        BEGIN
-            INSERT INTO dbo.ProductCategories (CategoryName)
-            VALUES (@Names);
-        END;
-
-        SELECT CategoryID
-        FROM dbo.ProductCategories
-        WHERE CategoryName = @Name;
-        """;
-    
-    await using var command = new SqlCommand(sql, connection, transaction);
-    command.Parameters.Add("@Name", SqlDbType.NVarChar, 100).Value = category;
-
-    return (int)(await command.ExecuteScalarAsync())!;
 }
 
 static string ReadRequired(string prompt, int maxLength)
