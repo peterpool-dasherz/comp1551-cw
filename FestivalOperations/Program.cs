@@ -38,7 +38,7 @@ try
 
         else if (choice == "2")
         {
-            await AddCrewAsync(personRepository);
+            await AddCrewAsync(personRepository, consoleView);
         }
 
         else if (choice == "3")
@@ -118,15 +118,15 @@ static async Task ViewPeopleByRoleAsync(PersonRepository personRepository, Conso
     consoleView.ShowPeopleByRole(role, people);
 }
 
-static async Task AddCrewAsync(PersonRepository personRepository)
+static async Task AddCrewAsync(PersonRepository personRepository, ConsoleView consoleView)
 {
-    string name = ReadRequired("Name: ", 150);
-    string telephone = ReadRequired("Telephone: ", 30);
-    string email = ReadRequired("Email: ", 254);
+    string name = consoleView.ReadRequiredText("Name: ", 150);
+    string telephone = consoleView.ReadRequiredText("Telephone: ", 30);
+    string email = consoleView.ReadRequiredText("Email: ", 254);
 
-    decimal hourlyRate = ReadHourlyRate();
-    string employmentType = ReadEmploymentType();
-    int weeklyHours = ReadWeeklyHours(employmentType);
+    decimal hourlyRate = consoleView.ReadCrewHourlyRate();
+    string employmentType = consoleView.ReadEmploymentType();
+    int weeklyHours = consoleView.ReadCrewWeeklyHours(employmentType);
 
     int personID = await personRepository.AddCrewAsync(
         name, 
@@ -137,7 +137,7 @@ static async Task AddCrewAsync(PersonRepository personRepository)
         weeklyHours
     );
 
-    Console.WriteLine($"New member added with PersonID {personID}.");
+    consoleView.ShowCrewAdded(personID);
 }
 
 static async Task AddPerformerAsync(PersonRepository personRepository)
