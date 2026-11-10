@@ -148,7 +148,7 @@ public sealed class ConsoleView
     public int ReadCrewWeeklyHours(string employmentType)
     {
         int minimumHours = employmentType == "FullTime" ? 25 : 1;
-        int maximumHours = employmentType == "PartTime" ? 40 : 24;
+        int maximumHours = employmentType == "FullTime" ? 40 : 24;
 
         while (true)
         {
@@ -169,5 +169,59 @@ public sealed class ConsoleView
     public void ShowCrewAdded(int personID)
     {
         Console.WriteLine($"New member added with PersonID {personID}.");
+    }
+
+    public decimal ReadPerformerFee()
+    {
+        while (true)
+        {
+            Console.Write("Performance fee (for example, 500.00): ");
+            string? input = Console.ReadLine();
+
+            if (decimal.TryParse(input, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal fee)
+                && fee >= 0
+                && fee <= 99999999.99m)
+            {
+                return fee;
+            }
+
+            Console.WriteLine("Please enter a valid fee.");
+        }
+    }
+
+    public List<string> ReadPerformerGenres()
+    {
+        while (true)
+        {
+            Console.Write("Genres: ");
+            string? input = Console.ReadLine();
+
+            List<string> genres = (input ?? string.Empty).Split(
+                ',',
+                StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries
+            )
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+            if (genres.Count == 0)
+            {
+                Console.WriteLine("Enter at least one genre.");
+            }
+
+            else if (genres.Any(genre => genre.Length > 100))
+            {
+                Console.WriteLine("Each genre must be 100 characters or fewer.");
+            }
+
+            else
+            {
+                return genres;
+            }
+        }
+    }
+
+    public void ShowPerformerAdded(int personID)
+    {
+        Console.WriteLine($"Performer added with PersonID {personID}.");
     }
 }
