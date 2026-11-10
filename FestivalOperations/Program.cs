@@ -63,7 +63,7 @@ try
 
         else if (choice == "7")
         {
-            await DeletePersonAsync(personRepository);
+            await DeletePersonAsync(personRepository, consoleView);
         }
 
         else
@@ -264,39 +264,26 @@ static int ReadPersonID(string prompt)
     }
 }
 
-static async Task DeletePersonAsync(PersonRepository personRepository)
+static async Task DeletePersonAsync(PersonRepository personRepository, ConsoleView consoleView)
 {
-    int personID = ReadPersonID("PersonID to delete: ");
+    int personID = consoleView.ReadPersonID("PersonID to delete: ");
 
     PersonSummary? person = await personRepository.GetPersonByIDAsync(personID);
 
     if (person is null)
     {
-        Console.WriteLine($"No person found with this ID {personID}.");
+        consoleView.ShowPersonNotFound(personID);
         return;
     }
 
-    Console.WriteLine($"Found: {person.Name} ({person.Role}), PersonID {person.PersonID}.");
-    Console.Write("Type YES to confirm deletion: ");
-
-    string? confirmation = Console.ReadLine()?.Trim();
-
-    if (!string.Equals(confirmation, "YES", StringComparison.OrdinalIgnoreCase))
+    if (!consoleView.ConfirmPersonDeletion(person))
     {
-        Console.WriteLine("Deletion cancelled.");
+        consoleView.ShowDeletionCancelled();
         return;
     }
 
     bool deleted = await personRepository.DeletePersonAsync(personID);
-
-    if (deleted)
-    {
-        Console.WriteLine($"Person {personID} was deleted.");
-    }
-    else
-    {
-        Console.WriteLine($"Person {personID} was not found.");
-    }
+    consoleView.ShowDeletionResult(personID, deleted);
 }
 
 static string ReadRequired(string prompt, int maxLength)

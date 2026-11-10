@@ -260,4 +260,57 @@ public sealed class ConsoleView
     {
         Console.WriteLine($"Vendor added with PersonID {personID}.");
     }
+
+    public int ReadPersonID(string prompt)
+    {
+        while (true)
+        {
+            Console.Write(prompt);
+            string? input = Console.ReadLine();
+
+            if (int.TryParse(input, out int personID) && personID > 0)
+            {
+                return personID;
+            }
+
+            Console.WriteLine("Enter a valid PersonID.");
+        }
+    }
+
+    public void ShowPersonNotFound(int personID)
+    {
+        Console.WriteLine($"No person found with PersonID {personID}.");
+    }
+
+    public bool ConfirmPersonDeletion(PersonSummary person)
+    {
+        Console.WriteLine($"Found: {person.Name} ({person.Role}), PersonID {person.PersonID}.");
+        Console.Write("Type YES to confirm deletion: ");
+
+        string? confirmation = Console.ReadLine()?.Trim();
+
+        return string.Equals(
+            confirmation,
+            "YES",
+            StringComparison.OrdinalIgnoreCase
+        );
+    }
+
+    public void ShowDeletionResult(int personID, bool deleted)
+    {
+        if (deleted)
+        {
+            Console.WriteLine($"Person {personID} was deleted.");
+        }
+
+        else
+        {
+            Console.WriteLine($"Person {personID} was not found.");
+        }
+    }
+
+    public void ShowDeletionCancelled()
+    {
+        Console.WriteLine("Deletion cancelled.");
+    }
 }
