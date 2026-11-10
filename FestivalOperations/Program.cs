@@ -48,7 +48,7 @@ try
 
         else if (choice == "4")
         {
-            await AddVendorAsync(personRepository);
+            await AddVendorAsync(personRepository, consoleView);
         }
 
         else if (choice == "5")
@@ -160,12 +160,12 @@ static async Task AddPerformerAsync(PersonRepository personRepository, ConsoleVi
     consoleView.ShowPerformerAdded(personID);
 }
 
-static async Task AddVendorAsync(PersonRepository personRepository)
+static async Task AddVendorAsync(PersonRepository personRepository, ConsoleView consoleView)
 {
-    string name = ReadRequired("Name: ", 150);
-    string telephone = ReadRequired("Telephone: ", 30);
-    string email = ReadRequired("Email: ", 254);
-    List<string> categories = ReadCategories();
+    string name = consoleView.ReadRequiredText("Name: ", 150);
+    string telephone =consoleView.ReadRequiredText("Telephone: ", 30);
+    string email = consoleView.ReadRequiredText("Email: ", 254);
+    List<string> categories = consoleView.ReadVendorCategories();
 
     int personID = await personRepository.AddVendorAsync(
         name,
@@ -174,7 +174,7 @@ static async Task AddVendorAsync(PersonRepository personRepository)
         categories
     );
 
-    Console.WriteLine($"Vendor added with PersonID {personID}.");
+    consoleView.ShowVendorAdded(personID);
 }
 
 static async Task EditPersonAsync(PersonRepository personRepository)

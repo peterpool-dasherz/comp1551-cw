@@ -96,7 +96,7 @@ public sealed class ConsoleView
 
             else if (value.Length > maxLength)
             {
-                Console.WriteLine($"This field must be {maxLength}");
+                Console.WriteLine($"This field must be {maxLength} or fewer.");
             }
 
             else
@@ -223,5 +223,41 @@ public sealed class ConsoleView
     public void ShowPerformerAdded(int personID)
     {
         Console.WriteLine($"Performer added with PersonID {personID}.");
+    }
+
+    public List<string> ReadVendorCategories()
+    {
+        while (true)
+        {
+            Console.Write("Product categories: ");
+            string? input = Console.ReadLine();
+
+            List<string> categories = (input ?? string.Empty).Split(
+                ',',
+                StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries
+            )
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        
+            if (categories.Count == 0)
+            {
+                Console.WriteLine("Enter at least one category.");
+            }
+
+            else if (categories.Any(category => category.Length > 100))
+            {
+                Console.WriteLine("Each category must be 100 characters or fewer.");
+            }
+
+            else
+            {
+                return categories;
+            }
+        }
+    }
+
+    public void ShowVendorAdded(int personID)
+    {
+        Console.WriteLine($"Vendor added with PersonID {personID}.");
     }
 }
