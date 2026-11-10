@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using Microsoft.Data.SqlClient;
+﻿using Microsoft.Data.SqlClient;
 using FestivalOperations.Data;
 using FestivalOperations.Views;
 
@@ -58,7 +57,7 @@ try
 
         else if (choice == "6")
         {
-            await EditPersonAsync(personRepository);
+            await EditPersonAsync(personRepository, consoleView);
         }
 
         else if (choice == "7")
@@ -177,24 +176,24 @@ static async Task AddVendorAsync(PersonRepository personRepository, ConsoleView 
     consoleView.ShowVendorAdded(personID);
 }
 
-static async Task EditPersonAsync(PersonRepository personRepository)
+static async Task EditPersonAsync(PersonRepository personRepository, ConsoleView consoleView)
 {
-    int personID = ReadPersonID("PersonID to edit: ");
+    int personID = consoleView.ReadPersonID("PersonID to edit: ");
 
     PersonSummary? person = await personRepository.GetPersonByIDAsync(personID);
 
     if (person is null)
     {
-        Console.WriteLine($"No person found with PersonID {personID}.");
+        consoleView.ShowPersonNotFound(personID);
         return;
     }
 
     string role = person.Role;
+    consoleView.ShowEditingPerson(role, personID);
 
-    Console.WriteLine($"Editing {role} with PersonID {personID}.");
-    string name = ReadRequired("New name: ", 150);
-    string telephone = ReadRequired("New telephone: ", 30);
-    string email = ReadRequired("New email: ", 254);
+    string name = consoleView.ReadRequiredText("New name: ", 150);
+    string telephone = consoleView.ReadRequiredText("New telephone: ", 30);
+    string email = consoleView.ReadRequiredText("New email: ", 254);
 
     decimal fee = 0;
     List<string> genres = [];
@@ -205,25 +204,25 @@ static async Task EditPersonAsync(PersonRepository personRepository)
 
     if (role == "Performer")
     {
-        fee = ReadPerformerFee();
-        genres = ReadGenres();
+        fee = consoleView.ReadPerformerFee();
+        genres = consoleView.ReadPerformerGenres();
     }
 
     else if (role == "Crew")
     {
-        hourlyRate = ReadHourlyRate();
-        employmentType = ReadEmploymentType();
-        weeklyHours = ReadWeeklyHours(employmentType);
+        hourlyRate = consoleView.ReadCrewHourlyRate();
+        employmentType = consoleView.ReadEmploymentType();
+        weeklyHours = consoleView.ReadCrewWeeklyHours(employmentType);
     }
 
     else if (role == "Vendor")
     {
-        categories = ReadCategories();
+        categories = consoleView.ReadVendorCategories();
     }
 
     else
     {
-        Console.WriteLine($"Unknown role '{role}'.");
+        consoleView.ShowUnknownRole(role);
         return;
     }
 
@@ -241,26 +240,14 @@ static async Task EditPersonAsync(PersonRepository personRepository)
         categories
     );
 
-    Console.WriteLine(
-        updated
-            ? $"Person {personID} updated successfully."
-            : $"Person {personID} was not found."
-    );
-}
-
-static int ReadPersonID(string prompt)
-{
-    while (true)
+    if (updated)
     {
-        Console.Write(prompt);
-        string? input = Console.ReadLine();
+        consoleView.ShowPersonUpdated(personID);
+    }
 
-        if (int.TryParse(input, out int personID) && personID > 0)
-        {
-            return personID;
-        }
-
-        Console.WriteLine("Enter a valid PersonID that is larger than zero.");
+    else
+    {
+        consoleView.ShowPersonNotFound(personID);
     }
 }
 
@@ -284,182 +271,4 @@ static async Task DeletePersonAsync(PersonRepository personRepository, ConsoleVi
 
     bool deleted = await personRepository.DeletePersonAsync(personID);
     consoleView.ShowDeletionResult(personID, deleted);
-}
-
-static string ReadRequired(string prompt, int maxLength)
-{
-    while (true)
-    {
-        Console.Write(prompt);
-        string? value = Console.ReadLine()?.Trim();
-
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            Console.WriteLine("This field cannot be empty.");
-        }
-
-        else if (value.Length > maxLength)
-        {
-            Console.WriteLine($"This field must be {maxLength} characters or fewer.");
-        }
-
-        else
-        {
-            return value;
-        }
-    }
-}
-
-static decimal ReadHourlyRate()
-{
-    while (true)
-    {
-        Console.Write("Hourly rate (for example, 15.00): ");
-        string? input = Console.ReadLine();
-
-        if (decimal.TryParse(
-            input,
-            NumberStyles.Number,
-            CultureInfo.InvariantCulture,
-            out decimal rate)
-        && rate >= 0
-        && rate <= 999999.99m)
-        {
-            return rate;
-        }
-
-        Console.WriteLine("Enter a rate: ");
-    }
-}
-
-static string ReadEmploymentType()
-{
-    while (true)
-    {
-        Console.Write("EmploymentType: ");
-        string? input = Console.ReadLine()?.Trim();
-
-        if (string.Equals(input, "FullTime", StringComparison.OrdinalIgnoreCase))
-        {
-            return "FullTime";
-        }
-
-        if (string.Equals(input, "PartTime", StringComparison.OrdinalIgnoreCase))
-        {
-            return "PartTime";
-        }
-
-        Console.WriteLine("Enter FullTime or PartTime.");
-    }
-}
-
-static int ReadWeeklyHours(string employmentType)
-{
-    int minimumHours = employmentType == "FullTime" ? 25 : 1;
-    int maximumHours = employmentType == "FullTime" ? 40 : 24;
-
-    while (true)
-    {
-        Console.Write($"Weekly hours ({minimumHours}-{maximumHours}): ");
-        string? input = Console.ReadLine();
-
-        if (int.TryParse(input, out int weeklyHours)
-            && weeklyHours >= minimumHours
-            && weeklyHours <= maximumHours)
-        {
-            return weeklyHours;
-        }
-
-        Console.WriteLine(
-            $"Enter a whole number from {minimumHours} to {maximumHours}."
-        );
-    }
-}
-
-static decimal ReadPerformerFee()
-{
-    while (true)
-    {
-        Console.Write("Performance fee (for example, 500.00): ");
-        string? input = Console.ReadLine();
-
-        if (decimal.TryParse(
-            input,
-            NumberStyles.Number,
-            CultureInfo.InvariantCulture,
-            out decimal fee)
-        && fee >= 0
-        && fee <= 99999999.99m)
-        {
-            return fee;
-        }
-
-        Console.WriteLine("Enter a fee: ");
-    }
-}
-
-static List<string> ReadGenres()
-{
-    while (true)
-    {
-        Console.Write("Genres: ");
-        string? input = Console.ReadLine();
-
-        List<string> genres = (input ?? string.Empty)
-            .Split(
-                ',',
-                StringSplitOptions.TrimEntries
-                    | StringSplitOptions.RemoveEmptyEntries
-            )
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        
-        if (genres.Count == 0)
-        {
-            Console.WriteLine("Enter at least one genre.");
-        }
-
-        else if (genres.Any(genre => genre.Length > 100))
-        {
-            Console.WriteLine("Each genre must be 100 characters or fewer.");
-        }
-
-        else
-        {
-            return genres;
-        }
-    }
-}
-
-static List<string> ReadCategories()
-{
-    while (true)
-    {
-        Console.Write("Product categories: ");
-        string? input = Console.ReadLine();
-
-        List<string> categories = (input ?? string.Empty)
-            .Split(
-                ',',
-                StringSplitOptions.TrimEntries
-                    | StringSplitOptions.RemoveEmptyEntries
-            )
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        
-        if (categories.Count == 0)
-        {
-            Console.WriteLine("Enter at least one category.");
-        }
-
-        else if (categories.Any(category => category.Length > 100))
-        {
-            Console.WriteLine("Each category must be 100 characters or fewer.");
-        }
-
-        else
-        {
-            return categories;
-        }
-    }
 }

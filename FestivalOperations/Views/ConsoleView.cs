@@ -96,7 +96,9 @@ public sealed class ConsoleView
 
             else if (value.Length > maxLength)
             {
-                Console.WriteLine($"This field must be {maxLength} or fewer.");
+                Console.WriteLine(
+                    $"This field must be {maxLength} characters or fewer."
+                );
             }
 
             else
@@ -312,5 +314,20 @@ public sealed class ConsoleView
     public void ShowDeletionCancelled()
     {
         Console.WriteLine("Deletion cancelled.");
+    }
+
+    public void ShowEditingPerson(string role, int personID)
+    {
+        Console.WriteLine($"Editing {role} with PersonID {personID}.");
+    }
+
+    public void ShowUnknownRole(string role)
+    {
+        Console.WriteLine($"Unknown role '{role}'.");
+    }
+
+    public void ShowPersonUpdated(int personID)
+    {
+        Console.WriteLine($"Person {personID} updated successfully.");
     }
 }
