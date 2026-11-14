@@ -14,6 +14,7 @@ public sealed class ConsoleView
         Console.WriteLine("5. View people by role");
         Console.WriteLine("6. Edit person by ID");
         Console.WriteLine("7. Delete person by ID");
+        Console.WriteLine("8. Search people by name.");
         Console.WriteLine("0. Exit");
         Console.Write("Choose an option: ");
 
@@ -329,5 +330,22 @@ public sealed class ConsoleView
     public void ShowPersonUpdated(int personID)
     {
         Console.WriteLine($"Person {personID} updated successfully.");
+    }
+
+    public void ShowPeopleSearchResults(IReadOnlyList<PersonSummary> people)
+    {
+        Console.WriteLine();
+        Console.WriteLine("ID | Name | Role");
+
+        if (people.Count == 0)
+        {
+            Console.WriteLine("No matching people found.");
+            return;
+        }
+
+        foreach (PersonSummary person in people)
+        {
+            Console.WriteLine($"{person.PersonID} | {person.Name} | {person.Role}");
+        }
     }
 }

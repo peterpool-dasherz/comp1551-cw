@@ -60,6 +60,11 @@ public sealed class FestivalController
                 await DeletePersonAsync();
             }
 
+            else if (choice == "8")
+            {
+                await SearchPeopleByNameAsync();
+            }
+
             else
             {
                 _consoleView.ShowInvalidMenuChoice();
@@ -266,5 +271,14 @@ public sealed class FestivalController
 
         bool deleted = await _personRepository.DeletePersonAsync(personID);
         _consoleView.ShowDeletionResult(personID, deleted);
+    }
+
+    private async Task SearchPeopleByNameAsync()
+    {
+        string searchTerm = _consoleView.ReadRequiredText("Name to search: ", 150);
+    
+    IReadOnlyList<PersonSummary> people = await _personRepository.SearchPeopleByNameAsync(searchTerm);
+
+    _consoleView.ShowPeopleSearchResults(people);
     }
 }

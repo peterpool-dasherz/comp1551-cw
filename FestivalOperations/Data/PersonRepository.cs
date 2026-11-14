@@ -52,6 +52,37 @@ public sealed class PersonRepository
         return people;
     }
 
+    public async Task<IReadOnlyList<PersonSummary>> SearchPeopleByNameAsync(string searchTerm)
+    {
+        const string sql = """
+            SELECT PersonID, Name, Role
+            FROM dbo.People
+            WHERE CHARINDEX(
+                @SearchTerm,
+                Name COLLATE Latin1_General_100_CI_AS 
+            ) > 0
+            ORDER BY PersonID;
+            """;
+        
+        var people = new List<PersonSummary>();
+
+        await using var command = new SqlCommand(sql, _connection);
+        command.Parameters.Add("@SearchTerm", SqlDbType.NVarChar, 150).Value = searchTerm;
+
+        await using var reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            people.Add(new PersonSummary(
+                reader.GetInt32(0),
+                reader.GetString(1),
+                reader.GetString(2)
+            ));
+        }
+
+        return people;
+    }
+
     public async Task<IReadOnlyList<PersonRoleSummary>> GetPeopleByRoleAsync(
         string role)
     {
