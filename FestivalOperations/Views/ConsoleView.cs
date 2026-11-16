@@ -348,4 +348,9 @@ public sealed class ConsoleView
             Console.WriteLine($"{person.PersonID} | {person.Name} | {person.Role}");
         }
     }
+
+    public void ShowDatabaseError(string message)
+    {
+        Console.WriteLine($"Database error: {message}");
+    }
 }

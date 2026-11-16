@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlClient;
 using FestivalOperations.Data;
 using FestivalOperations.Views;
 
@@ -25,49 +26,57 @@ public sealed class FestivalController
                 return;
             }
 
-            else if (choice == "1")
+            try
             {
-                await ListPeopleAsync();
+                if (choice == "1")
+                {
+                    await ListPeopleAsync();
+                }
+
+                else if (choice == "2")
+                {
+                    await AddCrewAsync();
+                }
+
+                else if (choice == "3")
+                {
+                    await AddPerformerAsync();
+                }
+
+                else if (choice == "4")
+                {
+                    await AddVendorAsync();
+                }
+
+                else if (choice == "5")
+                {
+                    await ViewPeopleByRoleAsync();
+                }
+
+                else if (choice == "6")
+                {
+                    await EditPersonAsync();
+                }
+
+                else if (choice == "7")
+                {
+                    await DeletePersonAsync();
+                }
+
+                else if (choice == "8")
+                {
+                    await SearchPeopleByNameAsync();
+                }
+
+                else
+                {
+                    _consoleView.ShowInvalidMenuChoice();
+                }
             }
 
-            else if (choice == "2")
+            catch (SqlException ex)
             {
-                await AddCrewAsync();
-            }
-
-            else if (choice == "3")
-            {
-                await AddPerformerAsync();
-            }
-
-            else if (choice == "4")
-            {
-                await AddVendorAsync();
-            }
-
-            else if (choice == "5")
-            {
-                await ViewPeopleByRoleAsync();
-            }
-
-            else if (choice == "6")
-            {
-                await EditPersonAsync();
-            }
-
-            else if (choice == "7")
-            {
-                await DeletePersonAsync();
-            }
-
-            else if (choice == "8")
-            {
-                await SearchPeopleByNameAsync();
-            }
-
-            else
-            {
-                _consoleView.ShowInvalidMenuChoice();
+                _consoleView.ShowDatabaseError(ex.Message);
             }
         }
     }
