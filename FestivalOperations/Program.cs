@@ -2,6 +2,7 @@
 using FestivalOperations.Data;
 using FestivalOperations.Views;
 using FestivalOperations.Controllers;
+using FestivalOperations.Services;
 
 string? connectionString = Environment.GetEnvironmentVariable("FESTIVAL_DB_CONNECTION");
 
@@ -17,13 +18,10 @@ try
     await connection.OpenAsync();
 
     var personRepository = new PersonRepository(connection);
+    var festivalService = new FestivalService(personRepository);
     var consoleView = new ConsoleView();
-    var festivalController = new FestivalController(
-        personRepository,
-        consoleView
-    );
 
-    Console.WriteLine("Connected to FestivalOperationsDB.");
+    var festivalController = new FestivalController(festivalService, consoleView);
     await festivalController.RunAsync();
 }
 

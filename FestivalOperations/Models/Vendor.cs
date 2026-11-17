@@ -42,10 +42,10 @@ public sealed class Vendor : Person
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         
-        if (cleanedCategories.Count == 0)
+        if (cleanedCategories.Count != 3)
         {
             throw new ArgumentException(
-                "A vendor must have at least one product.",
+                "A vendor must have exactly three different product categories.",
                 nameof(productCategories)
             );
 

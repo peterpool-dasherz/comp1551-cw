@@ -1,17 +1,18 @@
 using Microsoft.Data.SqlClient;
 using FestivalOperations.Data;
 using FestivalOperations.Views;
+using FestivalOperations.Services;
 
 namespace FestivalOperations.Controllers;
 
 public sealed class FestivalController
 {
-    private readonly PersonRepository _personRepository;
+    private readonly FestivalService _festivalService;
     private readonly ConsoleView _consoleView;
 
-    public FestivalController(PersonRepository personRepository, ConsoleView consoleView)
+    public FestivalController(FestivalService festivalService, ConsoleView consoleView)
     {
-        _personRepository = personRepository;
+        _festivalService = festivalService;
         _consoleView = consoleView;
     }
 
@@ -78,13 +79,18 @@ public sealed class FestivalController
             {
                 _consoleView.ShowDatabaseError(ex.Message);
             }
+
+            catch (ArgumentException ex)
+            {
+                _consoleView.ShowValidationError(ex.Message);
+            }
         }
     }
 
     private async Task ListPeopleAsync()
     {
         IReadOnlyList<PersonSummary> people =
-            await _personRepository.GetAllPeopleAsync();
+            await _festivalService.GetAllPeopleAsync();
         
         _consoleView.ShowPeople(people);
     }
@@ -118,7 +124,7 @@ public sealed class FestivalController
         }
 
         IReadOnlyList<PersonRoleSummary> people = 
-            await _personRepository.GetPeopleByRoleAsync(role);
+            await _festivalService.GetPeopleByRoleAsync(role);
         
         _consoleView.ShowPeopleByRole(role, people);
     }
@@ -133,7 +139,7 @@ public sealed class FestivalController
         string employmentType = _consoleView.ReadEmploymentType();
         int weeklyHours = _consoleView.ReadCrewWeeklyHours(employmentType);
 
-        int personID = await _personRepository.AddCrewAsync(
+        int personID = await _festivalService.AddCrewAsync(
             name,
             telephone,
             email,
@@ -154,7 +160,7 @@ public sealed class FestivalController
         decimal fee = _consoleView.ReadPerformerFee();
         List<string> genres = _consoleView.ReadPerformerGenres();
 
-        int personID = await _personRepository.AddPerformerAsync(
+        int personID = await _festivalService.AddPerformerAsync(
             name,
             telephone,
             email,
@@ -173,7 +179,7 @@ public sealed class FestivalController
 
         List<string> categories = _consoleView.ReadVendorCategories();
 
-        int personID = await _personRepository.AddVendorAsync(
+        int personID = await _festivalService.AddVendorAsync(
             name,
             telephone,
             email,
@@ -188,7 +194,7 @@ public sealed class FestivalController
         int personID = _consoleView.ReadPersonID("PersonID to edit: ");
 
         PersonSummary? person = 
-            await _personRepository.GetPersonByIDAsync(personID);
+            await _festivalService.GetPersonByIDAsync(personID);
         
         if (person is null)
         {
@@ -234,7 +240,7 @@ public sealed class FestivalController
             return;
         }
 
-        bool updated = await _personRepository.UpdatePersonAsync(
+        bool updated = await _festivalService.UpdatePersonAsync(
             personID,
             role,
             name,
@@ -264,7 +270,7 @@ public sealed class FestivalController
         int personID = _consoleView.ReadPersonID("PersonID to delete: ");
 
         PersonSummary? person =
-            await _personRepository.GetPersonByIDAsync(personID);
+            await _festivalService.GetPersonByIDAsync(personID);
         
         if (person is null)
         {
@@ -278,7 +284,7 @@ public sealed class FestivalController
             return;
         }
 
-        bool deleted = await _personRepository.DeletePersonAsync(personID);
+        bool deleted = await _festivalService.DeletePersonAsync(personID);
         _consoleView.ShowDeletionResult(personID, deleted);
     }
 
@@ -286,8 +292,9 @@ public sealed class FestivalController
     {
         string searchTerm = _consoleView.ReadRequiredText("Name to search: ", 150);
     
-    IReadOnlyList<PersonSummary> people = await _personRepository.SearchPeopleByNameAsync(searchTerm);
+        IReadOnlyList<PersonSummary> people =
+            await _festivalService.SearchPeopleByNameAsync(searchTerm);
 
-    _consoleView.ShowPeopleSearchResults(people);
+        _consoleView.ShowPeopleSearchResults(people);
     }
 }

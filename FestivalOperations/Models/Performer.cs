@@ -56,10 +56,10 @@ public sealed class Performer : Person
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         
-        if (cleanedGenres.Count == 0)
+        if (cleanedGenres.Count != 2)
         {
             throw new ArgumentException(
-                "A performer must have at least one genre.",
+                "A performer must have exactly two different genres.",
                 nameof(genres)
             );
 

@@ -353,4 +353,9 @@ public sealed class ConsoleView
     {
         Console.WriteLine($"Database error: {message}");
     }
+
+    public void ShowValidationError(string message)
+    {
+        Console.WriteLine($"Invalid input: {message}");
+    }
 }
