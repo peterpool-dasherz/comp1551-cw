@@ -3,6 +3,9 @@ using FestivalOperations.Models;
 
 namespace FestivalOperations.Services;
 
+/// <summary>
+/// Applies business rules and move data storage to the person repository.
+/// </summary>
 public sealed class FestivalService
 {
     private readonly PersonRepository _personRepository;
@@ -33,6 +36,9 @@ public sealed class FestivalService
         return _personRepository.GetPersonByIDAsync(personID);
     }
 
+/// <summary>
+/// Validates the role-specific details before saving.
+/// </summary>
     public async Task<int> AddCrewAsync(
         string name,
         string telephone,
@@ -41,6 +47,7 @@ public sealed class FestivalService
         string employmentType,
         int weeklyHours
     )
+    // Validate a temporary entity before saving. 
     {
         var crew = new Crew(
             0,
@@ -111,6 +118,9 @@ public sealed class FestivalService
         );
     }
 
+/// <summary>
+/// Validates updated details before saving.
+/// </summary>
     public async Task<bool> UpdatePersonAsync(
         int personID,
         string role,
@@ -124,6 +134,7 @@ public sealed class FestivalService
         int weeklyHours,
         List<string> categories
     )
+    // Use the matching model so each role's rules are checked. 
     {
         if (role == "Performer")
         {

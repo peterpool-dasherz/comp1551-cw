@@ -5,6 +5,9 @@ using FestivalOperations.Services;
 
 namespace FestivalOperations.Controllers;
 
+/// <summary>
+/// Routes menu choices to the corresponding service and connect with the views to display them.
+/// </summary>
 public sealed class FestivalController
 {
     private readonly FestivalService _festivalService;
@@ -16,6 +19,9 @@ public sealed class FestivalController
         _consoleView = consoleView;
     }
 
+/// <summary>
+/// Displays the main menu until the user choose to exit it.
+/// </summary>
     public async Task RunAsync()
     {
         while (true)
@@ -80,6 +86,7 @@ public sealed class FestivalController
                 _consoleView.ShowDatabaseError(ex.Message);
             }
 
+            // Show validation failures without saving invalid information. 
             catch (ArgumentException ex)
             {
                 _consoleView.ShowValidationError(ex.Message);
@@ -94,6 +101,10 @@ public sealed class FestivalController
         
         _consoleView.ShowPeople(people);
     }
+
+/// <summary>
+/// Filter the search result by role.
+/// </summary>
 
     private async Task ViewPeopleByRoleAsync()
     {
@@ -188,7 +199,9 @@ public sealed class FestivalController
 
         _consoleView.ShowVendorAdded(personID);
     }
-
+/// <summary>
+/// Reads an ID and edit the details of the corresponding person.
+/// </summary>
     private async Task EditPersonAsync()
     {
         int personID = _consoleView.ReadPersonID("PersonID to edit: ");
@@ -264,7 +277,9 @@ public sealed class FestivalController
             _consoleView.ShowPersonNotFound(personID);
         }
     }
-
+/// <summary>
+/// Checks if the person exists and confirm deletions before removing the record.
+/// </summary>
     private async Task DeletePersonAsync()
     {
         int personID = _consoleView.ReadPersonID("PersonID to delete: ");
@@ -287,6 +302,10 @@ public sealed class FestivalController
         bool deleted = await _festivalService.DeletePersonAsync(personID);
         _consoleView.ShowDeletionResult(personID, deleted);
     }
+
+/// <summary>
+/// Filter the search by names.
+/// </summary>
 
     private async Task SearchPeopleByNameAsync()
     {

@@ -2,7 +2,9 @@ using System.Data;
 using Microsoft.Data.SqlClient;
 
 namespace FestivalOperations.Data;
-
+/// <summary>
+/// Contains the SQL operations that are necessary for reading and writing role-specific records.
+/// </summary>
 public sealed record PersonSummary(
     int PersonID,
     string Name,
@@ -27,6 +29,9 @@ public sealed class PersonRepository
         _connection = connection;
     }
 
+/// <summary>
+/// Returns every person with their corresponding PersonID, Name and their respective roles.
+/// </summary>
     public async Task<IReadOnlyList<PersonSummary>> GetAllPeopleAsync()
     {
         const string sql = """
@@ -52,8 +57,12 @@ public sealed class PersonRepository
         return people;
     }
 
+/// <summary>
+/// Filter the search by names.
+/// </summary>
     public async Task<IReadOnlyList<PersonSummary>> SearchPeopleByNameAsync(string searchTerm)
     {
+        // Find partial matches for the names.
         const string sql = """
             SELECT PersonID, Name, Role
             FROM dbo.People
@@ -83,9 +92,13 @@ public sealed class PersonRepository
         return people;
     }
 
+/// <summary>
+/// Filter the search by role, including role-specific details.
+/// </summary>
     public async Task<IReadOnlyList<PersonRoleSummary>> GetPeopleByRoleAsync(
         string role)
     {
+        // Build a result using the details selected for that person's role.
         const string sql = """
             SELECT
                 p.PersonID,
@@ -163,6 +176,9 @@ public sealed class PersonRepository
         return people;
     }
 
+/// <summary>
+/// Saves a person and their details that associates with their role.
+/// </summary>
     public async Task<int> AddCrewAsync(
         string name,
         string telephone,
@@ -241,6 +257,9 @@ public sealed class PersonRepository
         }
     }
 
+/// <summary>
+/// Saves a person and their details that associates with their role.
+/// </summary>
     public async Task<int> AddPerformerAsync(
         string name,
         string telephone,
@@ -248,6 +267,7 @@ public sealed class PersonRepository
         decimal fee,
         IReadOnlyList<string> genres)
     {
+        // Keep related person and role-specific details together.
         using SqlTransaction transaction = _connection.BeginTransaction();
 
         try
@@ -290,6 +310,7 @@ public sealed class PersonRepository
                 await performerCommand.ExecuteNonQueryAsync();
             }
 
+            // Resolve each name to their corresponding shared ID, then link it to the related person.
             foreach (string genre in genres)
             {
                 int genreID = await GetOrCreateGenreIDAsync(transaction, genre);
@@ -329,6 +350,9 @@ public sealed class PersonRepository
         }
     }
 
+/// <summary>
+/// Reuses an existing genre ID or inserts the genre before returning its ID.
+/// </summary>
     private async Task<int> GetOrCreateGenreIDAsync(
         SqlTransaction transaction,
         string genre
@@ -358,6 +382,9 @@ public sealed class PersonRepository
 
     }
 
+/// <summary>
+/// Saves a person and their details that associates with their role.
+/// </summary>
     public async Task<int> AddVendorAsync(
         string name,
         string telephone, 
@@ -365,6 +392,7 @@ public sealed class PersonRepository
         IReadOnlyList<string> categories
     )
     {
+        // Keep related person and role-specific details together.
         using SqlTransaction transaction = _connection.BeginTransaction();
 
         try
@@ -404,6 +432,7 @@ public sealed class PersonRepository
                 await vendorCommand.ExecuteNonQueryAsync();
             }
 
+            // Resolve each name to their corresponding shared ID, then link it to the related person.
             foreach (string category in categories)
             {
                 int categoryID = await GetOrCreateCategoryIDAsync(
@@ -447,6 +476,9 @@ public sealed class PersonRepository
         }
     }
 
+/// <summary>
+/// Reuses an existing category ID or inserts the category before returning its ID.
+/// </summary>
     private async Task<int> GetOrCreateCategoryIDAsync(
         SqlTransaction transaction,
         string category
@@ -475,6 +507,9 @@ public sealed class PersonRepository
         return (int)(await command.ExecuteScalarAsync())!;
     }
 
+/// <summary>
+/// Returns the summary of a person by their ID or null if they don't exist.
+/// </summary>
     public async Task<PersonSummary?> GetPersonByIDAsync(int personID)
     {
         const string sql = """
@@ -501,6 +536,10 @@ public sealed class PersonRepository
         );
     }
 
+/// <summary>
+/// Deletes a person by their ID and notify the user whether the record was removed.
+/// Related role and link records are also removed.
+/// </summary>
     public async Task<bool> DeletePersonAsync(int personID)
     {
         const string sql = """
@@ -516,6 +555,9 @@ public sealed class PersonRepository
         return rowsDeleted == 1;
     }
 
+/// <summary>
+/// Updates shared and role-specific details.
+/// </summary>
     public async Task<bool> UpdatePersonAsync(
         int personID,
         string role,
@@ -530,6 +572,7 @@ public sealed class PersonRepository
         IReadOnlyList<string> categories
     )
     {
+        // Keep related person and role-specific details together.
         using SqlTransaction transaction = _connection.BeginTransaction();
 
         try
@@ -602,6 +645,7 @@ public sealed class PersonRepository
                     await deleteGenresCommand.ExecuteNonQueryAsync();
                 }
 
+                // Resolve each name to their corresponding shared ID, then link it to the related person.
                 foreach (string genre in genres)
                 {
                     int genreID = await GetOrCreateGenreIDAsync(transaction, genre);
@@ -669,6 +713,7 @@ public sealed class PersonRepository
                     await deleteCategoriesCommand.ExecuteNonQueryAsync();
                 }
 
+                // Resolve each name to their corresponding shared ID, then link it to the related person.
                 foreach (string category in categories)
                 {
                     int categoryID = await GetOrCreateCategoryIDAsync(

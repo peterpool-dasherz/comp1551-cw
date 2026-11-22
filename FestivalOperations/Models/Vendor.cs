@@ -31,6 +31,7 @@ public sealed class Vendor : Person
 
     }
 
+// Remove duplicates for input.
     private static IReadOnlyList<string> ValidateProductCategories(
         IEnumerable<string> productCategories
     )

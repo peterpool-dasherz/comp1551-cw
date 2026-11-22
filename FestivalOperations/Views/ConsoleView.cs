@@ -2,6 +2,9 @@ using System.Globalization;
 using FestivalOperations.Data;
 namespace FestivalOperations.Views;
 
+/// <summary>
+/// Handles console prompts and their output ONLY, it does not access the database.
+/// </summary>
 public sealed class ConsoleView
 {
     public string? ReadMainMenuChoice()
@@ -82,7 +85,9 @@ public sealed class ConsoleView
     {
         Console.WriteLine("Please choose from the options provided above.");
     }
-
+/// <summary>
+/// Reads the text and enforces their character limit.
+/// </summary>
     public string ReadRequiredText(string prompt, int maxLength)
     {
         while (true)
@@ -109,6 +114,9 @@ public sealed class ConsoleView
         }
     }
 
+/// <summary>
+/// Repeatedly prompt until the user enters a non-negative decimal within the allowed range.
+/// </summary>
     public decimal ReadCrewHourlyRate()
     {
         while (true)
@@ -127,6 +135,9 @@ public sealed class ConsoleView
         }
     }
 
+/// <summary>
+/// Accepts only its supported employment type and returns its normalised value.
+/// </summary>
     public string ReadEmploymentType()
     {
         while (true)
@@ -148,6 +159,9 @@ public sealed class ConsoleView
         }
     }
 
+/// <summary>
+/// Validate working hours by reading the employment type.
+/// </summary>
     public int ReadCrewWeeklyHours(string employmentType)
     {
         int minimumHours = employmentType == "FullTime" ? 25 : 1;
@@ -192,11 +206,14 @@ public sealed class ConsoleView
         }
     }
 
+/// <summary>
+/// Reads exactly two distinct genres and repeats when the input is invalid.
+/// </summary>
     public List<string> ReadPerformerGenres()
     {
         while (true)
         {
-            Console.Write("Genres: ");
+            Console.Write("Enter exactly 2 genres:  ");
             string? input = Console.ReadLine();
 
             List<string> genres = (input ?? string.Empty).Split(
@@ -206,9 +223,9 @@ public sealed class ConsoleView
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-            if (genres.Count == 0)
+            if (genres.Count != 2)
             {
-                Console.WriteLine("Enter at least one genre.");
+                Console.WriteLine("Enter exactly 2 genres.");
             }
 
             else if (genres.Any(genre => genre.Length > 100))
@@ -228,11 +245,14 @@ public sealed class ConsoleView
         Console.WriteLine($"Performer added with PersonID {personID}.");
     }
 
+/// <summary>
+/// Reads exactly three distinct product categories and repeats when the input is invalid.
+/// </summary>
     public List<string> ReadVendorCategories()
     {
         while (true)
         {
-            Console.Write("Product categories: ");
+            Console.Write("Enter exactly 3 product categories: ");
             string? input = Console.ReadLine();
 
             List<string> categories = (input ?? string.Empty).Split(
@@ -242,9 +262,9 @@ public sealed class ConsoleView
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         
-            if (categories.Count == 0)
+            if (categories.Count != 3)
             {
-                Console.WriteLine("Enter at least one category.");
+                Console.WriteLine("Enter exactly 3 different categories.");
             }
 
             else if (categories.Any(category => category.Length > 100))
@@ -285,6 +305,9 @@ public sealed class ConsoleView
         Console.WriteLine($"No person found with PersonID {personID}.");
     }
 
+/// <summary>
+/// Requires confirmation for actual deletion.
+/// </summary>
     public bool ConfirmPersonDeletion(PersonSummary person)
     {
         Console.WriteLine($"Found: {person.Name} ({person.Role}), PersonID {person.PersonID}.");

@@ -1,7 +1,7 @@
 namespace FestivalOperations.Models;
 
 /// <summary>
-/// Performers' class
+/// Performers' class.
 /// </summary>
 
 
@@ -35,6 +35,7 @@ public sealed class Performer : Person
         return $"Performer - genres: {string.Join(",", Genres)}";
     }
 
+// A fee can't be negative so this checks for invalid input.
     private static decimal ValidateFee(decimal fee)
     {
         if (fee < 0)
@@ -48,6 +49,7 @@ public sealed class Performer : Person
         return fee;
     }
 
+// Remove duplicates for input. 
     private static IReadOnlyList<string> ValidateGenres(IEnumerable<string> genres)
     {
         ArgumentNullException.ThrowIfNull(genres);

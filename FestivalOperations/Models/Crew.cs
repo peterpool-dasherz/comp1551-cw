@@ -1,7 +1,7 @@
 namespace FestivalOperations.Models;
 
 /// <summary>
-/// This one is for representing a crew member working at the festival.
+/// This one is for representing a crew member working at the festival and validates their schedule and pay.
 /// </summary>
 
 public sealed class Crew : Person
@@ -69,6 +69,7 @@ public sealed class Crew : Person
         return hourlyRate;
     }
 
+// Normalise accepted values therefore later checks use the same employee's name.
     private static string ValidateEmploymentType(string employmentType)
     {
         string cleanedType = RequireText(
@@ -98,6 +99,7 @@ public sealed class Crew : Person
         );
     }
 
+// Dividing different working types and their corresponding working hours.
     private static int ValidateWeeklyHours(
         int weeklyHours,
         string employmentType
