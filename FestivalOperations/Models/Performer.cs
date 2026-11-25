@@ -49,7 +49,7 @@ public sealed class Performer : Person
         return fee;
     }
 
-// Remove duplicates for input. 
+// Trim white space and remove case-insensitive duplicates before enforcing the required count. 
     private static IReadOnlyList<string> ValidateGenres(IEnumerable<string> genres)
     {
         ArgumentNullException.ThrowIfNull(genres);

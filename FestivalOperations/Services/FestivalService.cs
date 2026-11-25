@@ -37,7 +37,7 @@ public sealed class FestivalService
     }
 
 /// <summary>
-/// Validates the role-specific details before saving.
+/// Validates the Crew details before saving into the repository.
 /// </summary>
     public async Task<int> AddCrewAsync(
         string name,
@@ -47,7 +47,7 @@ public sealed class FestivalService
         string employmentType,
         int weeklyHours
     )
-    // Validate a temporary entity before saving. 
+    // Crew entity construction needs to validates its details before repository storage.
     {
         var crew = new Crew(
             0,
@@ -134,7 +134,7 @@ public sealed class FestivalService
         int weeklyHours,
         List<string> categories
     )
-    // Use the matching model so each role's rules are checked. 
+    // Use the matching model to validate the fields for the person's role. 
     {
         if (role == "Performer")
         {

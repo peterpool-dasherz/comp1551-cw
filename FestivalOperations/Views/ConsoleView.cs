@@ -86,7 +86,7 @@ public sealed class ConsoleView
         Console.WriteLine("Please choose from the options provided above.");
     }
 /// <summary>
-/// Reads the text and enforces their character limit.
+/// Reads the text and make sure that they aren't empty and within the specified maximum length.
 /// </summary>
     public string ReadRequiredText(string prompt, int maxLength)
     {
@@ -136,7 +136,7 @@ public sealed class ConsoleView
     }
 
 /// <summary>
-/// Accepts only its supported employment type and returns its normalised value.
+/// Reads only supported employment types and returns its normalised value.
 /// </summary>
     public string ReadEmploymentType()
     {
@@ -160,10 +160,11 @@ public sealed class ConsoleView
     }
 
 /// <summary>
-/// Validate working hours by reading the employment type.
+/// Validate working hours within the specific range for each employment type.
 /// </summary>
     public int ReadCrewWeeklyHours(string employmentType)
     {
+        // Full-time and part-time crew have different allocated working hour ranges.
         int minimumHours = employmentType == "FullTime" ? 25 : 1;
         int maximumHours = employmentType == "FullTime" ? 40 : 24;
 
@@ -306,7 +307,7 @@ public sealed class ConsoleView
     }
 
 /// <summary>
-/// Requires confirmation for actual deletion.
+/// Requires confirmation for actual deletion and returns whether if the user has confirmed deletion of the displayed person.
 /// </summary>
     public bool ConfirmPersonDeletion(PersonSummary person)
     {

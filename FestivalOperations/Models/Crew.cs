@@ -69,7 +69,7 @@ public sealed class Crew : Person
         return hourlyRate;
     }
 
-// Normalise accepted values therefore later checks use the same employee's name.
+// Accepted employment type is returned in one consistent form for storage and comparisons.
     private static string ValidateEmploymentType(string employmentType)
     {
         string cleanedType = RequireText(

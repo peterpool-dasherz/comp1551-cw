@@ -6,7 +6,7 @@ using FestivalOperations.Services;
 namespace FestivalOperations.Controllers;
 
 /// <summary>
-/// Routes menu choices to the corresponding service and connect with the views to display them.
+/// Routes menu choices to the corresponding service and sends results to the console view to display them.
 /// </summary>
 public sealed class FestivalController
 {
@@ -20,7 +20,7 @@ public sealed class FestivalController
     }
 
 /// <summary>
-/// Displays the main menu until the user choose to exit it.
+/// Displays the main menu until the user chooses to exit.
 /// </summary>
     public async Task RunAsync()
     {
@@ -228,7 +228,7 @@ public sealed class FestivalController
         string employmentType = "";
         int weeklyHours = 0;
         List<string> categories = [];
-
+        // Prompt for role-specific details needed for this person.
         if (role == "Performer")
         {
             fee = _consoleView.ReadPerformerFee();

@@ -98,7 +98,7 @@ public sealed class PersonRepository
     public async Task<IReadOnlyList<PersonRoleSummary>> GetPeopleByRoleAsync(
         string role)
     {
-        // Build a result using the details selected for that person's role.
+        // Build a result using the details selected for that person's role (as a readable summary for the list).
         const string sql = """
             SELECT
                 p.PersonID,
@@ -177,7 +177,7 @@ public sealed class PersonRepository
     }
 
 /// <summary>
-/// Saves a person and their details that associates with their role (within one data transaction).
+/// Saves a crew member and their details within one data transaction.
 /// </summary>
     public async Task<int> AddCrewAsync(
         string name,
@@ -259,7 +259,7 @@ public sealed class PersonRepository
     }
 
 /// <summary>
-/// Saves a person and their details that associates with their role.
+/// Saves a performer and their genres within one data transaction.
 /// </summary>
     public async Task<int> AddPerformerAsync(
         string name,
@@ -384,7 +384,7 @@ public sealed class PersonRepository
     }
 
 /// <summary>
-/// Saves a person and their details that associates with their role.
+/// Saves a vendor and their product categories within one data transaction. 
 /// </summary>
     public async Task<int> AddVendorAsync(
         string name,
@@ -541,6 +541,7 @@ public sealed class PersonRepository
 /// Deletes a person by their ID and notify the user whether the record was removed.
 /// Related role and link records are also removed.
 /// </summary>
+/// <returns> True if a person was successfully deleted, otherwise, false.
     public async Task<bool> DeletePersonAsync(int personID)
     {
         const string sql = """
@@ -604,6 +605,7 @@ public sealed class PersonRepository
 
             }
 
+            // Stop if there are no matches, role-specific should be left untouched.
             if (rowsUpdated == 0)
             {
                 transaction.Rollback();
