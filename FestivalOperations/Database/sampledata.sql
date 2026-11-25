@@ -1,12 +1,12 @@
 USE FestivalOperationsDB;
 GO
-
+-- Make SQL errors abort the data transaction, therefore the CATCH block can roll it back properly.
 SET XACT_ABORT ON;
 
 BEGIN TRY
     BEGIN TRANSACTION;
 
-    
+    -- Insert people in their role-specific and relationship records. 
     INSERT INTO dbo.People (Name, Telephone, Email, Role)
     SELECT sample.Name, sample.Telephone, sample.Email, sample.Role
     FROM (VALUES
@@ -53,7 +53,7 @@ BEGIN TRY
         WHERE genre.GenreName = sample.GenreName
     );
 
-    
+    -- Assign EXACTLY two distinct genres to each performer.
     INSERT INTO dbo.PerformerGenres (PersonID, GenreID)
     SELECT person.PersonID, genre.GenreID
     FROM (VALUES
@@ -122,7 +122,7 @@ BEGIN TRY
         WHERE category.CategoryName = sample.CategoryName
     );
 
-    
+    -- Assign EXACTLY three distinct categories to each vendor.
     INSERT INTO dbo.VendorCategories (PersonID, CategoryID)
     SELECT person.PersonID, category.CategoryID
     FROM (VALUES

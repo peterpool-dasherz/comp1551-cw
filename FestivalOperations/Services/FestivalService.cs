@@ -24,7 +24,7 @@ public sealed class FestivalService
         return _personRepository.GetAllPeopleAsync();
     }
 /// <summary>
-/// Returns people using their ID with their role and their role-specific details.
+/// Returns people using their role and their role-specific details as a filter.
 /// </summary>
     public Task<IReadOnlyList<PersonRoleSummary>> GetPeopleByRoleAsync(string role)
     {

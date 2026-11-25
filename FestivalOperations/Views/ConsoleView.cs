@@ -7,6 +7,10 @@ namespace FestivalOperations.Views;
 /// </summary>
 public sealed class ConsoleView
 {
+    /// <summary>
+    /// Displays the main menu for the application and returns the entered choice, or null at the end of the input.
+    /// </summary>
+    
     public string? ReadMainMenuChoice()
     {
         Console.WriteLine();
@@ -23,6 +27,9 @@ public sealed class ConsoleView
 
         return Console.ReadLine()?.Trim();
     }  
+/// <summary>
+/// Displays the role menu and returns the entered choice, or null at the end of the input.
+/// </summary>
 
     public string? ReadRoleChoice()
     {
@@ -40,6 +47,9 @@ public sealed class ConsoleView
     {
         Console.WriteLine("Please choose from the provided options above.");
     }
+/// <summary>
+/// Displays all people available or a message when no people found.
+/// </summary>
 
     public void ShowPeople(IReadOnlyList<PersonSummary> people)
     {
@@ -57,6 +67,9 @@ public sealed class ConsoleView
             Console.WriteLine($"{person.PersonID} | {person.Name} | {person.Role}");
         }
     }
+/// <summary>
+/// Displays people for the selected role including their role-specific details.
+/// </summary>
 
     public void ShowPeopleByRole(
         string role,
@@ -188,6 +201,9 @@ public sealed class ConsoleView
     {
         Console.WriteLine($"New member added with PersonID {personID}.");
     }
+/// <summary>
+/// Reads a performer fee (non-negative value) within the specified range.
+/// </summary>
 
     public decimal ReadPerformerFee()
     {
@@ -286,6 +302,9 @@ public sealed class ConsoleView
     {
         Console.WriteLine($"Vendor added with PersonID {personID}.");
     }
+/// <summary>
+/// Reads a PersonID, repeats until the input is valid.
+/// </summary>
 
     public int ReadPersonID(string prompt)
     {
@@ -324,6 +343,9 @@ public sealed class ConsoleView
             StringComparison.OrdinalIgnoreCase
         );
     }
+/// <summary>
+/// Displays whether the person was deleted or not found.
+/// </summary>
 
     public void ShowDeletionResult(int personID, bool deleted)
     {
@@ -357,6 +379,9 @@ public sealed class ConsoleView
     {
         Console.WriteLine($"Person {personID} updated successfully.");
     }
+/// <summary>
+/// Displays matching search results based on the input or a message when there are no matches.
+/// </summary>
 
     public void ShowPeopleSearchResults(IReadOnlyList<PersonSummary> people)
     {
