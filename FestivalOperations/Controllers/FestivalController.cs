@@ -106,6 +106,9 @@ public sealed class FestivalController
 /// Filter the search result by role.
 /// </summary>
 
+/// <summary>
+/// Displays people with the selected role or returns to the main menu. 
+/// </summary>
     private async Task ViewPeopleByRoleAsync()
     {
         string? role = null;
@@ -200,7 +203,7 @@ public sealed class FestivalController
         _consoleView.ShowVendorAdded(personID);
     }
 /// <summary>
-/// Reads an ID and edit the details of the corresponding person.
+/// Reads an ID and update the details of the corresponding person.
 /// </summary>
     private async Task EditPersonAsync()
     {

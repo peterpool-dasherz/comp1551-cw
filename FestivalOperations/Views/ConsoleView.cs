@@ -221,6 +221,7 @@ public sealed class ConsoleView
                 ',',
                 StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries
             )
+            // Genre names with different casing are treated as duplicates. 
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -260,6 +261,7 @@ public sealed class ConsoleView
                 ',',
                 StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries
             )
+            // Category names with different casing are treated as duplicates. 
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         

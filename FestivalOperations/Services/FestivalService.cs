@@ -15,22 +15,32 @@ public sealed class FestivalService
         ArgumentNullException.ThrowIfNull(personRepository);
         _personRepository = personRepository;
     }
+/// <summary>
+/// Returns the summaries of all people in the repository.
+/// </summary>
 
     public Task<IReadOnlyList<PersonSummary>> GetAllPeopleAsync()
     {
         return _personRepository.GetAllPeopleAsync();
     }
-
+/// <summary>
+/// Returns people using their ID with their role and their role-specific details.
+/// </summary>
     public Task<IReadOnlyList<PersonRoleSummary>> GetPeopleByRoleAsync(string role)
     {
         return _personRepository.GetPeopleByRoleAsync(role);
     }
+/// <summary>
+/// Returns people using their names (and names that contain the search term).
+/// </summary>
 
     public Task<IReadOnlyList<PersonSummary>> SearchPeopleByNameAsync(string searchTerm)
     {
         return _personRepository.SearchPeopleByNameAsync(searchTerm);
     }
-
+/// <summary>
+/// Returns a person's details summary by their ID.
+/// </summary>
     public Task<PersonSummary?> GetPersonByIDAsync(int personID)
     {
         return _personRepository.GetPersonByIDAsync(personID);
@@ -68,6 +78,9 @@ public sealed class FestivalService
             crew.WeeklyHours
         );
     }
+/// <summary>
+/// Validates and saves a performer with their details and their genres.
+/// </summary>
 
     public async Task<int> AddPerformerAsync(
         string name,
@@ -76,6 +89,7 @@ public sealed class FestivalService
         decimal fee,
         List<string> genres
     )
+    // The model normalizes contact details and validates the fee and genre count of the performer.
     {
         var performer = new Performer(
             0,
@@ -94,6 +108,9 @@ public sealed class FestivalService
             performer.Genres
         );
     }
+/// <summary>
+/// Validates and saves a vendor with their detauls and their product categories.
+/// </summary>
 
     public async Task<int> AddVendorAsync(
         string name,
@@ -101,6 +118,7 @@ public sealed class FestivalService
         string email,
         List<string> categories
     )
+    // The model normalizes contact details and validates the required product categories for the vendor.
     {
         var vendor = new Vendor(
             0,
@@ -216,7 +234,9 @@ public sealed class FestivalService
 
         return false;
     }
-
+/// <summary>
+/// Deletes the person with the specified ID through the repository.
+/// </summary>
     public Task<bool> DeletePersonAsync(int personID)
     {
         return _personRepository.DeletePersonAsync(personID);

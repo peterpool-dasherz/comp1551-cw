@@ -62,7 +62,7 @@ public sealed class PersonRepository
 /// </summary>
     public async Task<IReadOnlyList<PersonSummary>> SearchPeopleByNameAsync(string searchTerm)
     {
-        // Find partial matches for the names.
+        // Find partial matches for the names (using CHARINDEX).
         const string sql = """
             SELECT PersonID, Name, Role
             FROM dbo.People
@@ -633,7 +633,7 @@ public sealed class PersonRepository
 
                     await performerCommand.ExecuteNonQueryAsync();
                 }
-
+                // Replace the existing links so only the submitted genres remain.
                 const string deleteGenresSql = """
                     DELETE FROM dbo.PerformerGenres
                     WHERE PersonID = @PersonID;
@@ -702,6 +702,7 @@ public sealed class PersonRepository
 
             else if (role == "Vendor")
             {
+                // Replace the existing links so only the submitted categories remain. 
                 const string deleteCategoriesSql = """
                     DELETE FROM dbo.VendorCategories
                     WHERE PersonID = @PersonID;
