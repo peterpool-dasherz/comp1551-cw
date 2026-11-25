@@ -177,7 +177,7 @@ public sealed class PersonRepository
     }
 
 /// <summary>
-/// Saves a person and their details that associates with their role.
+/// Saves a person and their details that associates with their role (within one data transaction).
 /// </summary>
     public async Task<int> AddCrewAsync(
         string name,
@@ -187,6 +187,7 @@ public sealed class PersonRepository
         string employmentType,
         int weeklyHours)
     {
+        // Keep the person record and crew details consistent (in case both insert fails.)
         using SqlTransaction transaction = _connection.BeginTransaction();
 
         try
